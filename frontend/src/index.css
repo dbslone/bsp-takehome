@@ -8,8 +8,13 @@ body {
   margin: 0;
 }
 
+header,
 main {
   max-width: 720px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+header {
+  padding-bottom: 0;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { api } from './api'
+import { api } from '../api'
 
-function App() {
+function HomePage() {
   const [status, setStatus] = useState('checking...')
 
   useEffect(() => {
@@ -12,13 +12,10 @@ function App() {
   }, [])
 
   return (
-    <main>
-      <h1>BSP Takehome</h1>
-      <p>
-        Backend status: <strong>{status}</strong>
-      </p>
-    </main>
+    <p>
+      Backend status: <strong>{status}</strong>
+    </p>
   )
 }
 
-export default App
+export default HomePage
