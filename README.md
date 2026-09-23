@@ -1,0 +1,73 @@
+# BSP Takehome
+
+A full-stack TypeScript app:
+
+- **backend/** - Node.js + Express API
+- **frontend/** - React app built with Vite
+
+## Prerequisites
+
+- Node.js 22 or newer (includes npm)
+
+## Getting started
+
+Install dependencies for both apps from the repo root (npm workspaces):
+
+```bash
+npm install
+```
+
+Start the backend and frontend together:
+
+```bash
+npm run dev
+```
+
+| App      | URL                   |
+| -------- | --------------------- |
+| Frontend | http://localhost:5173 |
+| Backend  | http://localhost:3001 |
+
+In development, the Vite dev server proxies any request starting with `/api` to the backend, so the frontend can call `fetch('/api/...')` directly. The home page calls `GET /api/health` and shows the backend status.
+
+## Project structure
+
+```
+.
+├── package.json        # workspaces + root scripts
+├── backend/
+│   ├── src/index.ts    # Express server entry point
+│   └── tsconfig.json
+└── frontend/
+    ├── index.html
+    ├── vite.config.ts  # dev server + /api proxy
+    └── src/
+        ├── main.tsx
+        └── App.tsx
+```
+
+## Scripts
+
+Run from the repo root:
+
+| Command         | Description                                  |
+| --------------- | -------------------------------------------- |
+| `npm run dev`   | Run backend and frontend in watch mode       |
+| `npm run build` | Build backend (`backend/dist`) and frontend (`frontend/dist`) |
+| `npm start`     | Run the built backend                        |
+
+Run a single app with `-w`:
+
+```bash
+npm run dev -w backend
+npm run dev -w frontend
+npm run lint -w frontend
+```
+
+## Configuration
+
+| Variable | Default | Description         |
+| -------- | ------- | ------------------- |
+| `PORT`   | `3001`  | Backend listen port |
+
+If you change the backend port, update the proxy target in `frontend/vite.config.ts` as well.
