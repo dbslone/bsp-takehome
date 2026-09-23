@@ -42,11 +42,13 @@ In development, the Vite dev server proxies any request starting with `/api` to 
     ├── index.html
     ├── vite.config.ts  # dev server + /api proxy
     └── src/
-        ├── main.tsx        # renders the router
+        ├── main.tsx        # theme provider + router
         ├── router.tsx      # route definitions
         ├── api.ts          # shared axios instance
+        ├── theme.ts        # MUI theme (light/dark color schemes)
         ├── components/
-        │   └── Layout.tsx  # shared header/nav + <Outlet />
+        │   ├── Layout.tsx           # shared app bar/nav + <Outlet />
+        │   └── ColorModeToggle.tsx  # light/dark mode switch
         └── pages/
             ├── HomePage.tsx
             └── NotFoundPage.tsx
@@ -61,6 +63,14 @@ The frontend uses [React Router](https://reactrouter.com/) (data mode). All rout
 3. Optionally add a `NavLink` to it in `frontend/src/components/Layout.tsx`.
 
 Unknown paths render `NotFoundPage` via the `*` route.
+
+## UI
+
+The frontend uses [MUI](https://mui.com/material-ui/) (Material UI) with the Inter font. The theme lives in `frontend/src/theme.ts`. It defines separate light and dark color schemes and sets component defaults, such as flat buttons with no text transform and bordered paper instead of shadows. Change it there instead of styling individual components.
+
+The theme uses CSS variables, so style with theme tokens (for example `sx={{ color: 'text.secondary' }}` or `theme.vars.palette.*`) and colors will follow the active mode. Import components from their own path (`import Button from '@mui/material/Button'`).
+
+The mode starts from the OS preference. The toggle in the app bar (`ColorModeToggle`) switches between light and dark, and MUI saves the choice in `localStorage`.
 
 ## Scripts
 
