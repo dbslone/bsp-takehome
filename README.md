@@ -102,8 +102,9 @@ npm run lint -w frontend
 
 ## Configuration
 
-| Variable | Default | Description         |
-| -------- | ------- | ------------------- |
-| `PORT`   | `3001`  | Backend listen port |
+| Variable   | Default | Description                                                          |
+| ---------- | ------- | -------------------------------------------------------------------- |
+| `PORT`     | `3001`  | Backend listen port                                                  |
+| `DATA_DIR` | `data`  | Directory for brief files, relative to the backend working directory |
 
 If you change the backend port, update the proxy target in `frontend/vite.config.ts` as well.

@@ -37,7 +37,8 @@
       "plugins": ["node"],
       "env": { "node": true },
       "rules": {
-        "no-console": "off"
+        "no-console": "off",
+        "oxc/no-async-endpoint-handlers": "off"
       }
     }
   ]
