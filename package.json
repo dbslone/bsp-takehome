@@ -12,5 +12,9 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true,
+    "axios@1.20.0": true
   }
 }

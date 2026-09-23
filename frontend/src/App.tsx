@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
+import { api } from './api'
 
 function App() {
   const [status, setStatus] = useState('checking...')
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data: { status: string }) => setStatus(data.status))
+    api
+      .get<{ status: string }>('/health')
+      .then((res) => setStatus(res.data.status))
       .catch(() => setStatus('unreachable'))
   }, [])
 

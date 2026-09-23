@@ -28,7 +28,7 @@ npm run dev
 | Frontend | http://localhost:5173 |
 | Backend  | http://localhost:3001 |
 
-In development, the Vite dev server proxies any request starting with `/api` to the backend, so the frontend can call `fetch('/api/...')` directly. The home page calls `GET /api/health` and shows the backend status.
+In development, the Vite dev server proxies any request starting with `/api` to the backend, so the frontend can use relative URLs. HTTP requests go through the shared axios instance in `frontend/src/api.ts` (base URL `/api`), e.g. `api.get('/health')`. The home page calls `GET /api/health` and shows the backend status.
 
 ## Project structure
 
