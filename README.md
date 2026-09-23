@@ -66,11 +66,11 @@ Unknown paths render `NotFoundPage` via the `*` route.
 
 Run from the repo root:
 
-| Command         | Description                                  |
-| --------------- | -------------------------------------------- |
-| `npm run dev`   | Run backend and frontend in watch mode       |
+| Command         | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| `npm run dev`   | Run backend and frontend in watch mode                        |
 | `npm run build` | Build backend (`backend/dist`) and frontend (`frontend/dist`) |
-| `npm start`     | Run the built backend                        |
+| `npm start`     | Run the built backend                                         |
 
 Run a single app with `-w`:
 
