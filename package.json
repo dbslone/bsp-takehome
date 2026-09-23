@@ -8,10 +8,26 @@
   "scripts": {
     "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w backend && npm run build -w frontend",
-    "start": "npm run start -w backend"
+    "start": "npm run start -w backend",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "oxlint --fix --deny-warnings"
+    ],
+    "*.{json,md,css,html}": "prettier --write"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "oxlint": "^1.81.0",
+    "prettier": "^3.9.9"
   },
   "allowScripts": {
     "fsevents@2.3.3": true,
