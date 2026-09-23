@@ -66,11 +66,15 @@ Unknown paths render `NotFoundPage` via the `*` route.
 
 Run from the repo root:
 
-| Command         | Description                                                   |
-| --------------- | ------------------------------------------------------------- |
-| `npm run dev`   | Run backend and frontend in watch mode                        |
-| `npm run build` | Build backend (`backend/dist`) and frontend (`frontend/dist`) |
-| `npm start`     | Run the built backend                                         |
+| Command                | Description                                                   |
+| ---------------------- | ------------------------------------------------------------- |
+| `npm run dev`          | Run backend and frontend in watch mode                        |
+| `npm run build`        | Build backend (`backend/dist`) and frontend (`frontend/dist`) |
+| `npm start`            | Run the built backend                                         |
+| `npm run lint`         | Lint the whole repo with oxlint                               |
+| `npm run lint:fix`     | Lint and auto-fix what oxlint can                             |
+| `npm run format`       | Format the whole repo with Prettier                           |
+| `npm run format:check` | Check formatting without writing changes                      |
 
 Run a single app with `-w`:
 
@@ -79,6 +83,12 @@ npm run dev -w backend
 npm run dev -w frontend
 npm run lint -w frontend
 ```
+
+## Linting and formatting
+
+- [oxlint](https://oxc.rs/docs/guide/usage/linter) is configured in `.oxlintrc.json` at the repo root. Shared rules sit at the top level, and frontend (React) and backend (Node) rules go in `overrides`.
+- [Prettier](https://prettier.io/) is configured in `.prettierrc.json`.
+- A [husky](https://typicode.github.io/husky/) pre-commit hook runs [lint-staged](https://github.com/lint-staged/lint-staged). On staged files, it formats with Prettier and runs `oxlint --fix --deny-warnings`, so lint errors and warnings block the commit. The hook is installed automatically by `npm install` through the `prepare` script.
 
 ## Configuration
 

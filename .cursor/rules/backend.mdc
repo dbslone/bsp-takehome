@@ -1,0 +1,23 @@
+---
+description: Express backend conventions (routes, ESM imports, config)
+globs: backend/**
+alwaysApply: false
+---
+
+# Backend conventions
+
+- Express 5: rejected promises from async handlers are forwarded to the error handler automatically. Don't wrap handlers in try/catch just to call `next(err)`.
+- Mount every route under `/api`, because the frontend dev proxy only forwards `/api/*`.
+- ESM with `NodeNext` resolution: relative imports must include the `.js` extension, even from `.ts` files.
+
+```ts
+// Bad
+import { router } from './routes/users'
+
+// Good
+import { router } from './routes/users.js'
+```
+
+- Read configuration from `process.env` with a default (e.g. `Number(process.env.PORT ?? 3001)`), never hardcoded values. Document new variables in the README's Configuration table.
+- Respond with JSON (`res.json(...)`) and set an appropriate status code for errors (e.g. `res.status(404).json({ error: 'Not found' })`).
+- Type request bodies and params with Express generics (`Request<Params, ResBody, ReqBody>`) instead of `any`.

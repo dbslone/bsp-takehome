@@ -1,0 +1,33 @@
+---
+description: Monorepo layout, commands, and code quality expectations
+alwaysApply: true
+---
+
+# Project conventions
+
+Full-stack TypeScript app using npm workspaces:
+
+- `backend/` - Express 5 API (Node, ESM)
+- `frontend/` - React 19 app built with Vite
+
+## Commands
+
+Run everything from the repo root. Target one app with `-w`:
+
+```bash
+npm install                    # installs both workspaces and the git hooks
+npm run dev                    # backend + frontend in watch mode
+npm run lint                   # oxlint across the whole repo
+npm run format                 # Prettier across the whole repo
+npm install <pkg> -w frontend  # add a dependency to one app
+```
+
+Shared dev tooling (oxlint, Prettier, husky, lint-staged) lives in the root `package.json`, not in the workspaces.
+
+## Code quality
+
+- Linting uses oxlint (not ESLint), configured in the root `.oxlintrc.json`. Put app-specific rules in its `overrides`. Don't add ESLint.
+- Prettier (`.prettierrc.json`) owns formatting: single quotes, no semicolons, trailing commas, 100 column width. Don't format code by hand against it.
+- The pre-commit hook runs Prettier and `oxlint --deny-warnings` on staged files, so warnings block commits too. Run `npm run lint` before finishing a change.
+- TypeScript is strict. Prefer `unknown` plus narrowing over `any`, and use `import type` for type-only imports.
+- Prefix intentionally unused variables or parameters with `_` (e.g. `_req`).

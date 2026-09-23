@@ -1,0 +1,25 @@
+---
+description: React frontend conventions (routing, pages, API calls)
+globs: frontend/**
+alwaysApply: false
+---
+
+# Frontend conventions
+
+- Function components only, with one default-exported component per file. Hooks must follow the rules of hooks and list complete effect dependencies.
+- Pages go in `src/pages/` and shared UI goes in `src/components/`.
+- Register routes in `src/router.tsx` as children of `Layout` (React Router data mode, imported from `react-router`). Keep the `*` catch-all route last. Add nav links in `src/components/Layout.tsx`.
+- Make HTTP calls through the shared axios instance in `src/api.ts`. Use paths relative to `/api`; never hardcode the backend host. Vite proxies `/api` to the backend in dev.
+
+```tsx
+// Bad
+fetch('http://localhost:3001/api/health')
+
+// Good
+import { api } from '../api'
+api.get<{ status: string }>('/health')
+```
+
+- Type API responses with the generic on `api.get<T>()` etc. instead of casting.
+- Handle the loading and error states for every request (see `src/pages/HomePage.tsx`).
+- Give list items a stable `key` (not the array index when items can reorder).
