@@ -75,7 +75,7 @@ function BriefFormFields({ values, errors, disabled, hasFile, onChange }: BriefF
   )
 }
 
-type FieldProps = BriefFormFieldsProps & {
+type FieldProps = Omit<BriefFormFieldsProps, 'hasFile'> & {
   field: BriefFormField
   label: string
   required: boolean
