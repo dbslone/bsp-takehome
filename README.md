@@ -19,6 +19,7 @@ A full-stack TypeScript app. The running app is at [https://bsp-takehome.onrende
 - [Deployment](#deployment)
 - [Architecture](#architecture)
   - [How a brief moves through the app](#how-a-brief-moves-through-the-app)
+  - [Editing and deleting](#editing-and-deleting)
   - [Data schema](#data-schema)
   - [API](#api)
   - [Adding a brief field](#adding-a-brief-field)
@@ -179,7 +180,15 @@ One Node process serves the API and, when `frontend/dist` exists, the built UI. 
 4. **Validate.** The response is parsed as JSON and checked with `ModelResponse.safeParse` before anything is treated as an analysis. On success, blank brief fields are filled from the model's `extracted` object and the rest is stored as `result`. On timeout, malformed JSON, or a schema mismatch, the analysis row is saved as `error` with a short message. The UI never receives an unvalidated result.
 5. **Render.** The brief page loads `GET /api/briefs/:id` and `GET /api/briefs/:id/analysis`. While the latest analysis is `pending`, the panel polls every 3 seconds. A successful result renders themes, audience, strengths, risks, and next actions. An error renders the saved message and keeps the previous successful result on screen.
 
-Editing a brief supersedes a pending run: the old row becomes `error` (`Superseded by a newer analysis`), its model call is aborted, and a new pending row is inserted. Failure behavior for uploads, HTTP, analysis, and each screen is listed in [`docs/edge-cases.md`](docs/edge-cases.md).
+### Editing and deleting
+
+**Edit.** `PATCH /api/briefs/:id` takes the same text fields as create, and an optional replacement file. The route runs the same length and file checks. When the body includes a text field or a file, it updates the row, returns `200`, and queues a new analysis. A pending run is superseded: the old row becomes `error` (`Superseded by a newer analysis`), its model call is aborted, and a new pending row is inserted. An empty patch does not start a run. A field the user has already saved is left alone when a later analysis extracts text from the file.
+
+**Delete.** `DELETE /api/briefs/:id` returns `204`. The in-flight model call is aborted, then the brief is removed. Its analyses are removed by the foreign key. An unknown id is `404`.
+
+The home page and the brief page do not show these actions. Edit and delete are the two routes above.
+
+Failure behavior for uploads, HTTP, analysis, and each screen is listed in [`docs/edge-cases.md`](docs/edge-cases.md).
 
 ### Data schema
 
@@ -291,3 +300,4 @@ The prompt asks for themes, audience, strengths, risks, and next actions that ar
 
 - [Edge cases](docs/edge-cases.md). Uploads, HTTP errors, analysis failures, and what each screen shows when something goes wrong.
 - [LLM provider comparison](docs/llm-provider-comparison.md). Why the demo uses OpenRouter free models instead of Anthropic or OpenAI.
+- [Choosing a model](docs/model-selection.md). How to bake off free OpenRouter models and pick the default.
