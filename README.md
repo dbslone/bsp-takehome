@@ -8,6 +8,18 @@ A full-stack TypeScript app:
 ## Prerequisites
 
 - Node.js 22 or newer (includes npm)
+- Docker, for the local Postgres database
+
+## Local database
+
+Briefs and uploaded files are stored in Postgres. Start a database and copy the example environment file:
+
+```bash
+docker compose up -d
+cp .env.example .env
+```
+
+`.env.example` sets `DATABASE_URL` to `postgres://bsp:bsp@localhost:5432/bsp`. The backend dev script loads that file. Production does not: the host injects `DATABASE_URL` and `PORT`.
 
 ## Getting started
 
@@ -106,9 +118,19 @@ npm run lint -w frontend
 
 ## Configuration
 
-| Variable   | Default | Description                                                          |
-| ---------- | ------- | -------------------------------------------------------------------- |
-| `PORT`     | `3001`  | Backend listen port                                                  |
-| `DATA_DIR` | `data`  | Directory for brief files, relative to the backend working directory |
+| Variable       | Default         | Description                                                                                                                                                                            |
+| -------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` |                 | Postgres connection string. Required.                                                                                                                                                  |
+| `DATABASE_SSL` |                 | Set to `true` to connect with TLS without verifying the server certificate. Also enabled when `DATABASE_URL` includes `sslmode=require`, `verify-ca`, or `verify-full`.                |
+| `PORT`         | `3001`          | Backend listen port                                                                                                                                                                    |
+| `STATIC_DIR`   | `frontend/dist` | Built frontend to serve. Resolved from the repo layout, not the process working directory. Skipped when that folder has no `index.html`, which is the case during local `npm run dev`. |
 
 If you change the backend port, update the proxy target in `frontend/vite.config.ts` as well.
+
+## Deployment
+
+One Node process serves the API and the built frontend. The Dockerfile builds both workspaces and starts the backend with `npm start`. Railway, Render, and Fly.io can build that image directly. Create a Postgres database on the host and set `DATABASE_URL`. For hosted databases that require TLS, include `sslmode=require` in the URL or set `DATABASE_SSL=true`. Point the platform health check at `GET /api/health`.
+
+- **Railway:** New project from this repo (it uses the Dockerfile). Add Postgres and set the app's `DATABASE_URL` from that database. The app listens on `PORT`.
+- **Render:** New Web Service with the Docker environment, plus a Render Postgres instance. Use the internal database URL as `DATABASE_URL`.
+- **Fly.io:** `fly launch` from this repo, then `fly postgres create` and `fly postgres attach` so `DATABASE_URL` is set. Do not run a second process for the frontend.

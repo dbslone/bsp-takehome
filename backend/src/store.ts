@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { Pool, type PoolConfig } from 'pg'
 
 export type BriefFile = {
   originalName: string
@@ -21,7 +21,7 @@ export type Brief = {
 }
 
 export type IncomingFile = {
-  tempPath: string
+  buffer: Buffer
   originalName: string
   mimeType: string
   size: number
@@ -44,75 +44,125 @@ export type BriefPatch = {
   file?: IncomingFile
 }
 
+export type BriefUpload = {
+  originalName: string
+  mimeType: string
+  bytes: Buffer
+}
+
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function dataRoot(): string {
-  return path.resolve(process.env.DATA_DIR ?? 'data')
+const BRIEF_COLUMNS = `id, title, description, content_type, target_audience, notes,
+  file_name, file_mime, file_size, created_at, updated_at`
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS briefs (
+  id uuid PRIMARY KEY,
+  title text NOT NULL,
+  description text NOT NULL,
+  content_type text NOT NULL,
+  target_audience text NOT NULL,
+  notes text NOT NULL,
+  file_name text NOT NULL,
+  file_mime text NOT NULL,
+  file_size integer NOT NULL,
+  file_bytes bytea NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+)
+`
+
+let pool: Pool | undefined
+
+function databaseConfig(): PoolConfig {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error('DATABASE_URL is required')
+  }
+
+  const sslMode = sslModeOf(connectionString)
+  const useSsl =
+    process.env.DATABASE_SSL === 'true' ||
+    sslMode === 'require' ||
+    sslMode === 'verify-ca' ||
+    sslMode === 'verify-full'
+
+  return {
+    connectionString: useSsl ? withoutSslMode(connectionString) : connectionString,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  }
 }
 
-export function briefsDir(): string {
-  return path.join(dataRoot(), 'briefs')
+function sslModeOf(connectionString: string): string | null {
+  try {
+    return new URL(connectionString).searchParams.get('sslmode')
+  } catch {
+    return null
+  }
 }
 
-export function tmpDir(): string {
-  return path.join(dataRoot(), 'tmp')
+function withoutSslMode(connectionString: string): string {
+  const url = new URL(connectionString)
+  url.searchParams.delete('sslmode')
+  return url.toString()
 }
 
-function briefDir(id: string): string {
-  return path.join(briefsDir(), id)
+function getPool(): Pool {
+  pool ??= new Pool(databaseConfig())
+  return pool
 }
 
 export async function initStore(): Promise<void> {
-  await mkdir(briefsDir(), { recursive: true })
-  await mkdir(tmpDir(), { recursive: true })
+  await getPool().query(SCHEMA)
 }
 
-function isNotFound(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'code' in err && err.code === 'ENOENT'
+export async function pingStore(): Promise<void> {
+  await getPool().query('SELECT 1')
 }
 
-function isBriefFile(value: unknown): value is BriefFile {
-  if (typeof value !== 'object' || value === null) return false
-  const file = value as Record<string, unknown>
-  return (
-    typeof file.originalName === 'string' &&
-    typeof file.mimeType === 'string' &&
-    typeof file.size === 'number'
-  )
+function timestamp(value: unknown): string | null {
+  if (value instanceof Date) return value.toISOString()
+  if (typeof value === 'string') return value
+  return null
 }
 
-function isBrief(value: unknown): value is Brief {
-  if (typeof value !== 'object' || value === null) return false
-  const brief = value as Record<string, unknown>
-  return (
-    typeof brief.id === 'string' &&
-    typeof brief.title === 'string' &&
-    typeof brief.description === 'string' &&
-    typeof brief.contentType === 'string' &&
-    typeof brief.targetAudience === 'string' &&
-    typeof brief.notes === 'string' &&
-    isBriefFile(brief.file) &&
-    typeof brief.createdAt === 'string' &&
-    typeof brief.updatedAt === 'string'
-  )
-}
+function asBrief(row: unknown): Brief {
+  if (typeof row !== 'object' || row === null) {
+    throw new Error('Invalid brief row')
+  }
+  const value = row as Record<string, unknown>
+  const createdAt = timestamp(value.created_at)
+  const updatedAt = timestamp(value.updated_at)
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.description !== 'string' ||
+    typeof value.content_type !== 'string' ||
+    typeof value.target_audience !== 'string' ||
+    typeof value.notes !== 'string' ||
+    typeof value.file_name !== 'string' ||
+    typeof value.file_mime !== 'string' ||
+    typeof value.file_size !== 'number' ||
+    !createdAt ||
+    !updatedAt
+  ) {
+    throw new Error('Invalid brief row')
+  }
 
-async function writeJson(filePath: string, value: unknown): Promise<void> {
-  const tmp = `${filePath}.${randomUUID()}.tmp`
-  await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`)
-  await rename(tmp, filePath)
-}
-
-async function readBrief(id: string): Promise<Brief | null> {
-  if (!ID_PATTERN.test(id)) return null
-  try {
-    const raw = await readFile(path.join(briefDir(id), 'brief.json'), 'utf8')
-    const parsed: unknown = JSON.parse(raw)
-    if (!isBrief(parsed) || parsed.id !== id) return null
-    return parsed
-  } catch (err) {
-    if (isNotFound(err)) return null
-    throw err
+  return {
+    id: value.id,
+    title: value.title,
+    description: value.description,
+    contentType: value.content_type,
+    targetAudience: value.target_audience,
+    notes: value.notes,
+    file: {
+      originalName: value.file_name,
+      mimeType: value.file_mime,
+      size: value.file_size,
+    },
+    createdAt,
+    updatedAt,
   }
 }
 
@@ -125,87 +175,135 @@ function storedFile(file: IncomingFile): BriefFile {
   }
 }
 
+async function readBrief(id: string): Promise<Brief | null> {
+  if (!ID_PATTERN.test(id)) return null
+  const result = await getPool().query(`SELECT ${BRIEF_COLUMNS} FROM briefs WHERE id = $1`, [id])
+  const row: unknown = result.rows[0]
+  if (!row) return null
+  return asBrief(row)
+}
+
 export async function listBriefs(): Promise<Brief[]> {
-  let entries
-  try {
-    entries = await readdir(briefsDir(), { withFileTypes: true })
-  } catch (err) {
-    if (isNotFound(err)) return []
-    throw err
-  }
-
-  const briefs: Brief[] = []
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const brief = await readBrief(entry.name)
-    if (brief) briefs.push(brief)
-  }
-
-  briefs.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
-  return briefs
+  const result = await getPool().query(
+    `SELECT ${BRIEF_COLUMNS} FROM briefs ORDER BY created_at DESC`,
+  )
+  return result.rows.map((row) => asBrief(row))
 }
 
 export async function getBrief(id: string): Promise<Brief | null> {
   return readBrief(id)
 }
 
-export function briefUploadPath(id: string): string | null {
+export async function getBriefFile(id: string): Promise<BriefUpload | null> {
   if (!ID_PATTERN.test(id)) return null
-  return path.join(briefDir(id), 'upload')
+  const result = await getPool().query(
+    `SELECT file_name, file_mime, file_bytes FROM briefs WHERE id = $1`,
+    [id],
+  )
+  const row: unknown = result.rows[0]
+  if (typeof row !== 'object' || row === null) return null
+  const value = row as Record<string, unknown>
+  if (typeof value.file_name !== 'string' || typeof value.file_mime !== 'string') return null
+  const bytes = value.file_bytes
+  if (!Buffer.isBuffer(bytes)) return null
+  return {
+    originalName: value.file_name,
+    mimeType: value.file_mime,
+    bytes,
+  }
 }
 
 export async function createBrief(text: BriefText, file: IncomingFile): Promise<Brief> {
   const id = randomUUID()
-  const dir = briefDir(id)
-  await mkdir(dir, { recursive: true })
-  try {
-    await rename(file.tempPath, path.join(dir, 'upload'))
-    const now = new Date().toISOString()
-    const brief: Brief = {
+  const now = new Date().toISOString()
+  const stored = storedFile(file)
+  const result = await getPool().query(
+    `INSERT INTO briefs (
+      id, title, description, content_type, target_audience, notes,
+      file_name, file_mime, file_size, file_bytes, created_at, updated_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    RETURNING ${BRIEF_COLUMNS}`,
+    [
       id,
-      title: text.title,
-      description: text.description,
-      contentType: text.contentType,
-      targetAudience: text.targetAudience,
-      notes: text.notes,
-      file: storedFile(file),
-      createdAt: now,
-      updatedAt: now,
-    }
-    await writeJson(path.join(dir, 'brief.json'), brief)
-    return brief
-  } catch (err) {
-    await rm(dir, { recursive: true, force: true })
-    throw err
-  }
+      text.title,
+      text.description,
+      text.contentType,
+      text.targetAudience,
+      text.notes,
+      stored.originalName,
+      stored.mimeType,
+      stored.size,
+      file.buffer,
+      now,
+      now,
+    ],
+  )
+  return asBrief(result.rows[0])
 }
 
 export async function updateBrief(id: string, patch: BriefPatch): Promise<Brief | null> {
   const existing = await readBrief(id)
   if (!existing) return null
 
-  const dir = briefDir(id)
+  const now = new Date().toISOString()
+  const title = patch.title ?? existing.title
+  const description = patch.description ?? existing.description
+  const contentType = patch.contentType ?? existing.contentType
+  const targetAudience = patch.targetAudience ?? existing.targetAudience
+  const notes = patch.notes ?? existing.notes
+
   if (patch.file) {
-    await rename(patch.file.tempPath, path.join(dir, 'upload'))
+    const stored = storedFile(patch.file)
+    const result = await getPool().query(
+      `UPDATE briefs SET
+        title = $2,
+        description = $3,
+        content_type = $4,
+        target_audience = $5,
+        notes = $6,
+        file_name = $7,
+        file_mime = $8,
+        file_size = $9,
+        file_bytes = $10,
+        updated_at = $11
+      WHERE id = $1
+      RETURNING ${BRIEF_COLUMNS}`,
+      [
+        id,
+        title,
+        description,
+        contentType,
+        targetAudience,
+        notes,
+        stored.originalName,
+        stored.mimeType,
+        stored.size,
+        patch.file.buffer,
+        now,
+      ],
+    )
+    const row: unknown = result.rows[0]
+    return row ? asBrief(row) : null
   }
 
-  const brief: Brief = {
-    id: existing.id,
-    title: patch.title ?? existing.title,
-    description: patch.description ?? existing.description,
-    contentType: patch.contentType ?? existing.contentType,
-    targetAudience: patch.targetAudience ?? existing.targetAudience,
-    notes: patch.notes ?? existing.notes,
-    file: patch.file ? storedFile(patch.file) : existing.file,
-    createdAt: existing.createdAt,
-    updatedAt: new Date().toISOString(),
-  }
-  await writeJson(path.join(dir, 'brief.json'), brief)
-  return brief
+  const result = await getPool().query(
+    `UPDATE briefs SET
+      title = $2,
+      description = $3,
+      content_type = $4,
+      target_audience = $5,
+      notes = $6,
+      updated_at = $7
+    WHERE id = $1
+    RETURNING ${BRIEF_COLUMNS}`,
+    [id, title, description, contentType, targetAudience, notes, now],
+  )
+  const row: unknown = result.rows[0]
+  return row ? asBrief(row) : null
 }
 
 export async function removeBrief(id: string): Promise<boolean> {
-  if (!(await readBrief(id))) return false
-  await rm(briefDir(id), { recursive: true, force: true })
-  return true
+  if (!ID_PATTERN.test(id)) return false
+  const result = await getPool().query(`DELETE FROM briefs WHERE id = $1`, [id])
+  return (result.rowCount ?? 0) > 0
 }
