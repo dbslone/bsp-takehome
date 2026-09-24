@@ -19,7 +19,7 @@ import { ModelResponse, modelResponseJsonSchema, type BriefAnalysis } from './sc
 const SYSTEM_PROMPT = `You are a senior creative strategist reviewing a creative brief for a production team.
 Read the brief form fields and the attached file, then respond with a single JSON object that matches the provided schema exactly. Do not include any text outside the JSON.
 
-- extracted: title, description, contentType, targetAudience, and notes taken from the attached file. Form lines that say "(not provided)" are blank. Use an empty string when the file does not state a value. Title, content type, and target audience must each be 255 characters or fewer.
+- extracted: title, description, contentType, targetAudience, and notes taken from the attached file. Form lines that say "(not provided)" are blank. Use an empty string when the file does not state a value. Title and content type must each be 255 characters or fewer.
 - themes: summarize the brief, list its primary themes, classify the content type, and describe the tone.
 - audience: quote the stated audience (or null if none), explain who the audience really is, and list useful segments.
 - strengths: what the brief does well and the creative opportunities it opens up.

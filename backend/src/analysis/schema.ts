@@ -50,9 +50,7 @@ export const ExtractedBrief = z.object({
   contentType: z
     .string()
     .describe('Content classification, at most 255 characters. Empty string if unstated'),
-  targetAudience: z
-    .string()
-    .describe('Audience named in the file, at most 255 characters. Empty string if unstated'),
+  targetAudience: z.string().describe('Audience named in the file. Empty string if unstated'),
   notes: z
     .string()
     .describe('Timing, budget, deliverables, and other notes. Empty string if unstated'),

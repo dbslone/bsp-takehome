@@ -43,7 +43,7 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
         disabled={disabled}
         onChange={onChange}
       />
-      <ShortField
+      <OpenField
         field="targetAudience"
         label="Target audience"
         values={values}
@@ -101,6 +101,21 @@ function LongField({ field, label, values, errors, disabled, onChange }: FieldPr
       minRows={2}
       fullWidth
       slotProps={{ htmlInput: { maxLength: LONG_FIELD_MAX } }}
+    />
+  )
+}
+
+function OpenField({ field, label, values, errors, disabled, onChange }: FieldProps) {
+  const error = errors[field]
+  return (
+    <TextField
+      label={label}
+      value={values[field]}
+      onChange={(event) => onChange(field, event.target.value)}
+      disabled={disabled}
+      error={Boolean(error)}
+      helperText={error}
+      fullWidth
     />
   )
 }

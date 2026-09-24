@@ -16,14 +16,14 @@ export type BriefFormErrors = Partial<Record<BriefFormField, string>>
 type FieldRule = {
   key: BriefFormField
   label: string
-  max: number
+  max?: number
 }
 
 const FIELDS: FieldRule[] = [
   { key: 'title', label: 'Title', max: SHORT_FIELD_MAX },
   { key: 'description', label: 'Description', max: LONG_FIELD_MAX },
   { key: 'contentType', label: 'Content type', max: SHORT_FIELD_MAX },
-  { key: 'targetAudience', label: 'Target audience', max: SHORT_FIELD_MAX },
+  { key: 'targetAudience', label: 'Target audience' },
   { key: 'notes', label: 'Notes', max: LONG_FIELD_MAX },
 ]
 
@@ -53,7 +53,7 @@ export function briefTitle(brief: { title: string; file: { originalName: string 
   return brief.title.trim() || brief.file.originalName
 }
 
-function lengthError(label: string, value: string, max: number): string | undefined {
-  if (value.trim().length <= max) return undefined
+function lengthError(label: string, value: string, max?: number): string | undefined {
+  if (max === undefined || value.trim().length <= max) return undefined
   return `${label} must be ${max} characters or fewer`
 }

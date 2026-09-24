@@ -11,14 +11,14 @@ type FieldKey = keyof BriefText
 type FieldRule = {
   key: FieldKey
   label: string
-  max: number
+  max?: number
 }
 
 const FIELDS: FieldRule[] = [
   { key: 'title', label: 'Title', max: SHORT_FIELD_MAX },
   { key: 'description', label: 'Description', max: LONG_FIELD_MAX },
   { key: 'contentType', label: 'Content type', max: SHORT_FIELD_MAX },
-  { key: 'targetAudience', label: 'Target audience', max: SHORT_FIELD_MAX },
+  { key: 'targetAudience', label: 'Target audience' },
   { key: 'notes', label: 'Notes', max: LONG_FIELD_MAX },
 ]
 
@@ -63,13 +63,11 @@ export function briefContentError(originalName: string, bytes: Buffer): string |
 }
 
 export function clipBriefText(text: BriefText): BriefText {
-  return {
-    title: clip(text.title, SHORT_FIELD_MAX),
-    description: clip(text.description, LONG_FIELD_MAX),
-    contentType: clip(text.contentType, SHORT_FIELD_MAX),
-    targetAudience: clip(text.targetAudience, SHORT_FIELD_MAX),
-    notes: clip(text.notes, LONG_FIELD_MAX),
+  const clipped = emptyBriefText()
+  for (const field of FIELDS) {
+    clipped[field.key] = limitText(text[field.key], field.max)
   }
+  return clipped
 }
 
 function emptyBriefText(): BriefText {
@@ -80,14 +78,15 @@ function readText(body: Record<string, unknown>, field: FieldRule): string | Fie
   const value = body[field.key]
   if (typeof value !== 'string') return { ok: false, error: `${field.label} must be text` }
   const trimmed = value.trim()
-  if (trimmed.length > field.max) {
+  if (field.max !== undefined && trimmed.length > field.max) {
     return { ok: false, error: `${field.label} must be ${field.max} characters or fewer` }
   }
   return trimmed
 }
 
-function clip(value: string, max: number): string {
-  return value.trim().slice(0, max)
+function limitText(value: string, max: number | undefined): string {
+  const trimmed = value.trim()
+  return max === undefined ? trimmed : trimmed.slice(0, max)
 }
 
 function contentError(extension: string, bytes: Buffer): string | null {

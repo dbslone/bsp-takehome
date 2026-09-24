@@ -6,19 +6,19 @@ How the app behaves when a request, upload, analysis, or screen does not follow 
 
 Create and update both require the file checks below. Text fields are optional. Blank title, description, content type, audience, and notes are allowed and can be filled from the file after analysis.
 
-| Case                                                 | Response                                               |
-| ---------------------------------------------------- | ------------------------------------------------------ |
-| No file on create                                    | `400` `A file is required`                             |
-| Extension other than `.pdf`, `.docx`, or `.txt`      | `400` `Upload must be a PDF, DOCX, or plain text file` |
-| Empty file                                           | `400` `File is empty`                                  |
-| `.pdf` whose first 1 KB does not contain `%PDF-`     | `400` `File content is not a PDF`                      |
-| `.docx` that is not a zip (`PK` header)              | `400` `File content is not a DOCX document`            |
-| `.txt` that contains a null byte                     | `400` `Text file contains binary data`                 |
-| Larger than 10 MB                                    | `400` `File must be 10 MB or smaller`                  |
-| Other multer rejection                               | `400` `Invalid upload`                                 |
-| A field is not a string                              | `400` `{Label} must be text`                           |
-| Title, content type, or audience over 255 characters | `400` with the field name and limit                    |
-| Description or notes over 10,000 characters          | `400` with the field name and limit                    |
+| Case                                             | Response                                               |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| No file on create                                | `400` `A file is required`                             |
+| Extension other than `.pdf`, `.docx`, or `.txt`  | `400` `Upload must be a PDF, DOCX, or plain text file` |
+| Empty file                                       | `400` `File is empty`                                  |
+| `.pdf` whose first 1 KB does not contain `%PDF-` | `400` `File content is not a PDF`                      |
+| `.docx` that is not a zip (`PK` header)          | `400` `File content is not a DOCX document`            |
+| `.txt` that contains a null byte                 | `400` `Text file contains binary data`                 |
+| Larger than 10 MB                                | `400` `File must be 10 MB or smaller`                  |
+| Other multer rejection                           | `400` `Invalid upload`                                 |
+| A field is not a string                          | `400` `{Label} must be text`                           |
+| Title or content type over 255 characters        | `400` with the field name and limit                    |
+| Description or notes over 10,000 characters      | `400` with the field name and limit                    |
 
 The add-brief dialog checks extension, empty file, and the 10 MB limit as soon as a file is chosen or dropped, and again on submit. The server repeats those checks and also inspects the bytes.
 
@@ -76,7 +76,7 @@ Deleting a brief aborts its in-flight model call, then deletes the brief. Analys
 
 ### Filling blank fields
 
-A successful analysis writes extracted title, description, content type, audience, and notes only into columns that are still blank at update time. A value the user already saved is left alone, including when they edit the brief while the model call is in flight. Extracted text is trimmed and clipped to the same length limits as the form before it is written. `updated_at` changes only when a blank field is actually filled.
+A successful analysis writes extracted title, description, content type, audience, and notes only into columns that are still blank at update time. A value the user already saved is left alone, including when they edit the brief while the model call is in flight. Extracted text is trimmed, then clipped to the form's length limits, before it is written. Target audience has no length limit. `updated_at` changes only when a blank field is actually filled.
 
 ## Screens
 
