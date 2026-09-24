@@ -1,15 +1,18 @@
 import type { z } from 'zod'
 import {
+  analysisIsPending,
   completeAnalysis,
   createAnalysis,
   failAnalysis,
   fillBlankBriefFields,
   getBrief,
   getBriefFile,
+  replacePendingAnalysis,
   type Analysis,
   type BriefText,
 } from '../store/index.js'
 import { fileContent, type FileContent } from './extract.js'
+import { beginBriefRun, cancelBrief, endBriefRun } from './inflight.js'
 import { callOpenRouter, OpenRouterError, type Completion, type Message } from './openrouter.js'
 import { ModelResponse, modelResponseJsonSchema, type BriefAnalysis } from './schema.js'
 
@@ -31,28 +34,49 @@ export async function startAnalysis(briefId: string): Promise<Analysis> {
   return analysis
 }
 
+export async function restartAnalysis(briefId: string): Promise<Analysis> {
+  cancelBrief(briefId)
+  const analysis = await replacePendingAnalysis(briefId)
+  void runAnalysis(analysis.id, briefId)
+  return analysis
+}
+
 async function runAnalysis(analysisId: string, briefId: string): Promise<void> {
+  const signal = beginBriefRun(analysisId, briefId)
   try {
-    const outcome = await analyze(briefId)
-    if (outcome.ok) {
-      await fillBlankBriefFields(briefId, outcome.extracted)
-      await completeAnalysis(analysisId, { model: outcome.model, result: outcome.result })
-    } else {
-      await failAnalysis(analysisId, outcome)
-    }
+    if (signal.aborted || !(await analysisIsPending(analysisId))) return
+    await settle(analysisId, briefId, await analyze(briefId, signal))
   } catch (err: unknown) {
     console.error(`Analysis ${analysisId} failed`, err)
-    await failAnalysis(analysisId, { error: 'Unexpected error while analyzing the brief' }).catch(
-      (saveErr: unknown) => console.error(`Could not save failure for ${analysisId}`, saveErr),
-    )
+    await settle(analysisId, briefId, {
+      ok: false,
+      error: 'Unexpected error while analyzing the brief',
+    }).catch((saveErr: unknown) => {
+      console.error(`Could not save failure for ${analysisId}`, saveErr)
+    })
+  } finally {
+    endBriefRun(analysisId)
   }
+}
+
+async function settle(analysisId: string, briefId: string, outcome: Outcome): Promise<void> {
+  if (!(await analysisIsPending(analysisId))) return
+  if (!outcome.ok) {
+    await failAnalysis(analysisId, outcome).catch((saveErr: unknown) => {
+      console.error(`Could not save failure for ${analysisId}`, saveErr)
+    })
+    return
+  }
+  await fillBlankBriefFields(briefId, outcome.extracted)
+  await completeAnalysis(analysisId, { model: outcome.model, result: outcome.result })
 }
 
 type Outcome =
   | { ok: true; model: string; result: BriefAnalysis; extracted: BriefText }
   | { ok: false; error: string; model?: string; rawResponse?: string }
 
-async function analyze(briefId: string): Promise<Outcome> {
+async function analyze(briefId: string, signal: AbortSignal): Promise<Outcome> {
+  if (signal.aborted) return { ok: false, error: 'Analysis was cancelled' }
   const [brief, file] = await Promise.all([getBrief(briefId), getBriefFile(briefId)])
   if (!brief || !file) {
     return { ok: false, error: 'The brief or its file no longer exists' }
@@ -86,6 +110,7 @@ async function analyze(briefId: string): Promise<Outcome> {
     completion = await callOpenRouter(messages, {
       plugins: content.plugins,
       schema: modelResponseJsonSchema,
+      signal,
     })
   } catch (err: unknown) {
     if (err instanceof OpenRouterError) {

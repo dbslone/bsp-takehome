@@ -27,7 +27,7 @@ export class OpenRouterError extends Error {
 
 export async function callOpenRouter(
   messages: Message[],
-  options: { plugins: Plugin[]; schema: Record<string, unknown> },
+  options: { plugins: Plugin[]; schema: Record<string, unknown>; signal?: AbortSignal },
 ): Promise<Completion> {
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
@@ -37,6 +37,7 @@ export async function callOpenRouter(
   const primary = process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL
   const models = [primary, ...FALLBACK_MODELS.filter((model) => model !== primary)]
 
+  const signal = requestSignal(options.signal)
   let res: Response
   try {
     res = await fetch(OPENROUTER_URL, {
@@ -55,9 +56,10 @@ export async function callOpenRouter(
           json_schema: { name: 'brief_analysis', strict: true, schema: options.schema },
         },
       }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal,
     })
   } catch (err: unknown) {
+    if (options.signal?.aborted) throw new OpenRouterError('Analysis was cancelled')
     if (err instanceof Error && err.name === 'TimeoutError') {
       throw new OpenRouterError(`OpenRouter did not respond within ${TIMEOUT_MS / 1000} seconds`)
     }
@@ -93,6 +95,11 @@ function valueAt(value: unknown, path: (string | number)[]): unknown {
 function stringAt(value: unknown, path: (string | number)[]): string | undefined {
   const found = valueAt(value, path)
   return typeof found === 'string' ? found : undefined
+}
+
+function requestSignal(cancel: AbortSignal | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(TIMEOUT_MS)
+  return cancel ? AbortSignal.any([timeout, cancel]) : timeout
 }
 
 function errorMessage(body: unknown): string {

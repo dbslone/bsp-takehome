@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { briefTextFromBody, briefUploadError } from './briefFields.js'
+import { briefContentError, briefTextFromBody, briefUploadError } from './briefFields.js'
 
 const examplesDir = fileURLToPath(new URL('../../example-briefs/', import.meta.url))
 
@@ -21,6 +21,38 @@ function loadCases(): ExampleCase[] {
   }
   return raw.map(asExample)
 }
+
+describe('brief file content', () => {
+  it('rejects an empty file', () => {
+    assert.equal(briefContentError('notes.txt', Buffer.alloc(0)), 'File is empty')
+  })
+
+  it('rejects a pdf without a pdf header', () => {
+    assert.equal(briefContentError('notes.pdf', Buffer.from('hello')), 'File content is not a PDF')
+  })
+
+  it('accepts a pdf header', () => {
+    assert.equal(briefContentError('notes.pdf', Buffer.from('%PDF-1.4')), null)
+  })
+
+  it('rejects binary text', () => {
+    assert.equal(
+      briefContentError('notes.txt', Buffer.from([0x68, 0x00])),
+      'Text file contains binary data',
+    )
+  })
+
+  it('rejects a docx that is not a zip', () => {
+    assert.equal(
+      briefContentError('notes.docx', Buffer.from('hello')),
+      'File content is not a DOCX document',
+    )
+  })
+
+  it('accepts a docx zip header', () => {
+    assert.equal(briefContentError('notes.docx', Buffer.from([0x50, 0x4b, 0x03, 0x04])), null)
+  })
+})
 
 describe('example briefs', () => {
   for (const example of loadCases()) {

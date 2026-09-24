@@ -36,7 +36,11 @@ function withoutSslMode(connectionString: string): string {
 }
 
 export function getPool(): Pool {
-  pool ??= new Pool(databaseConfig())
+  if (pool) return pool
+  pool = new Pool(databaseConfig())
+  pool.on('error', (err) => {
+    console.error('Unexpected database client error', err)
+  })
   return pool
 }
 

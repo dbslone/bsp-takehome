@@ -52,9 +52,18 @@ function AnalysisHeader({ latest, shown, starting, onStart }: AnalysisHeaderProp
   )
 }
 
-function StatusChip({ status }: { status: AnalysisStatus }) {
-  const { label, color } = STATUS_CHIP[status]
-  return <Chip size="small" variant="outlined" color={color} label={label} />
+function StatusChip({ status }: { status: string }) {
+  const chip = statusChip(status)
+  return <Chip size="small" variant="outlined" color={chip.color} label={chip.label} />
 }
+
+function statusChip(status: string): { label: string; color: ChipColor } {
+  if (status === 'pending' || status === 'error' || status === 'succeeded') {
+    return STATUS_CHIP[status]
+  }
+  return { label: 'Unknown', color: 'default' }
+}
+
+type ChipColor = 'default' | 'info' | 'error' | 'success'
 
 export default AnalysisHeader

@@ -1,8 +1,11 @@
 import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer from 'multer'
-import { startAnalysis } from '../analysis/run.js'
-import { briefPatchFromBody, briefTextFromBody, briefUploadError } from '../briefFields.js'
+import { cancelBrief } from '../analysis/inflight.js'
+import { restartAnalysis, startAnalysis } from '../analysis/run.js'
+import { briefContentError, briefPatchFromBody, briefTextFromBody } from '../briefFields.js'
 import {
+  AnalysisAlreadyRunning,
+  BriefNotFound,
   createBrief,
   getAnalysisState,
   getBrief,
@@ -11,6 +14,7 @@ import {
   listBriefs,
   removeBrief,
   updateBrief,
+  type Brief,
   type IncomingFile,
 } from '../store/index.js'
 
@@ -32,7 +36,7 @@ briefsRouter.post('/', receiveUpload, async (req, res) => {
     res.status(400).json({ error: 'A file is required' })
     return
   }
-  const uploadError = briefUploadError(req.file.originalname)
+  const uploadError = fileError(req.file)
   if (uploadError) {
     res.status(400).json({ error: uploadError })
     return
@@ -44,8 +48,7 @@ briefsRouter.post('/', receiveUpload, async (req, res) => {
   }
 
   const brief = await createBrief(parsed.text, incomingFile(req.file))
-  await queueAnalysis(brief.id)
-  res.status(201).json(brief)
+  sendBrief(res, 201, brief, await queueAnalysis(brief.id))
 })
 
 briefsRouter.get('/:id/analysis', async (req, res) => {
@@ -67,7 +70,11 @@ briefsRouter.post('/:id/analysis', async (req, res) => {
     res.status(409).json({ error: 'An analysis is already in progress' })
     return
   }
-  res.status(202).json(await startAnalysis(brief.id))
+  try {
+    res.status(202).json(await startAnalysis(brief.id))
+  } catch (err: unknown) {
+    sendAnalysisStartError(res, err)
+  }
 })
 
 briefsRouter.get('/:id/file', async (req, res) => {
@@ -106,7 +113,7 @@ briefsRouter.patch('/:id', receiveUpload, async (req: Request<{ id: string }>, r
   const patch = parsed.patch
 
   if (req.file) {
-    const uploadError = briefUploadError(req.file.originalname)
+    const uploadError = fileError(req.file)
     if (uploadError) {
       res.status(400).json({ error: uploadError })
       return
@@ -119,13 +126,12 @@ briefsRouter.patch('/:id', receiveUpload, async (req: Request<{ id: string }>, r
     res.status(404).json({ error: 'Not found' })
     return
   }
-  if (Object.keys(patch).length > 0) {
-    await queueAnalysis(brief.id)
-  }
-  res.json(brief)
+  const analysisError = Object.keys(patch).length > 0 ? await queueAnalysis(brief.id) : null
+  sendBrief(res, 200, brief, analysisError)
 })
 
 briefsRouter.delete('/:id', async (req, res) => {
+  cancelBrief(req.params.id)
   const removed = await removeBrief(req.params.id)
   if (!removed) {
     res.status(404).json({ error: 'Not found' })
@@ -134,12 +140,40 @@ briefsRouter.delete('/:id', async (req, res) => {
   res.status(204).end()
 })
 
-async function queueAnalysis(briefId: string): Promise<void> {
+async function queueAnalysis(briefId: string): Promise<string | null> {
   try {
-    await startAnalysis(briefId)
+    await restartAnalysis(briefId)
+    return null
   } catch (err: unknown) {
+    if (err instanceof AnalysisAlreadyRunning) return null
     console.error(`Could not start analysis for brief ${briefId}`, err)
+    return 'Could not start analysis'
   }
+}
+
+function sendBrief(
+  res: Response,
+  status: number,
+  brief: Brief,
+  analysisError: string | null,
+): void {
+  res.status(status).json(analysisError ? { ...brief, analysisError } : brief)
+}
+
+function sendAnalysisStartError(res: Response, err: unknown): void {
+  if (err instanceof AnalysisAlreadyRunning) {
+    res.status(409).json({ error: 'An analysis is already in progress' })
+    return
+  }
+  if (err instanceof BriefNotFound) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  throw err
+}
+
+function fileError(file: Express.Multer.File): string | null {
+  return briefContentError(file.originalname, file.buffer)
 }
 
 function receiveUpload(req: Request, res: Response, next: NextFunction): void {

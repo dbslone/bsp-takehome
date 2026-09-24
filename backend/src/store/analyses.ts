@@ -1,7 +1,26 @@
 import { randomUUID } from 'node:crypto'
+import type { Pool, PoolClient } from 'pg'
+import { postgresCode } from '../db/pgError.js'
 import { getPool } from '../db/pool.js'
 import { asRecord, ID_PATTERN, requiredString, timestamp } from './row.js'
 import type { Analysis, AnalysisState, AnalysisStatus } from './types.js'
+
+const UNIQUE_VIOLATION = '23505'
+const FOREIGN_KEY_VIOLATION = '23503'
+
+export class AnalysisAlreadyRunning extends Error {
+  constructor() {
+    super('An analysis is already in progress')
+    this.name = 'AnalysisAlreadyRunning'
+  }
+}
+
+export class BriefNotFound extends Error {
+  constructor() {
+    super('Not found')
+    this.name = 'BriefNotFound'
+  }
+}
 
 const ANALYSIS_COLUMNS = 'id, brief_id, status, model, result, error, created_at, completed_at'
 
@@ -29,13 +48,23 @@ function asAnalysis(row: unknown): Analysis {
 }
 
 export async function createAnalysis(briefId: string): Promise<Analysis> {
-  const result = await getPool().query(
-    `INSERT INTO brief_analyses (id, brief_id, status, created_at)
-    VALUES ($1, $2, 'pending', $3)
-    RETURNING ${ANALYSIS_COLUMNS}`,
-    [randomUUID(), briefId, new Date().toISOString()],
-  )
-  return asAnalysis(result.rows[0])
+  return insertPending(getPool(), briefId)
+}
+
+export async function replacePendingAnalysis(briefId: string): Promise<Analysis> {
+  const client = await getPool().connect()
+  try {
+    await client.query('BEGIN')
+    await supersedePending(client, briefId)
+    const analysis = await insertPending(client, briefId)
+    await client.query('COMMIT')
+    return analysis
+  } catch (err: unknown) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 export async function completeAnalysis(
@@ -45,7 +74,7 @@ export async function completeAnalysis(
   await getPool().query(
     `UPDATE brief_analyses
     SET status = 'succeeded', model = $2, result = $3, completed_at = $4
-    WHERE id = $1`,
+    WHERE id = $1 AND status = 'pending'`,
     [id, outcome.model, JSON.stringify(outcome.result), new Date().toISOString()],
   )
 }
@@ -57,7 +86,7 @@ export async function failAnalysis(
   await getPool().query(
     `UPDATE brief_analyses
     SET status = 'error', error = $2, model = $3, raw_response = $4, completed_at = $5
-    WHERE id = $1`,
+    WHERE id = $1 AND status = 'pending'`,
     [
       id,
       outcome.error,
@@ -90,6 +119,15 @@ export async function getAnalysisState(briefId: string): Promise<AnalysisState> 
   }
 }
 
+export async function analysisIsPending(id: string): Promise<boolean> {
+  if (!ID_PATTERN.test(id)) return false
+  const result = await getPool().query(
+    `SELECT 1 FROM brief_analyses WHERE id = $1 AND status = 'pending'`,
+    [id],
+  )
+  return (result.rowCount ?? 0) > 0
+}
+
 export async function hasPendingAnalysis(briefId: string): Promise<boolean> {
   if (!ID_PATTERN.test(briefId)) return false
   const result = await getPool().query(
@@ -97,6 +135,33 @@ export async function hasPendingAnalysis(briefId: string): Promise<boolean> {
     [briefId],
   )
   return (result.rowCount ?? 0) > 0
+}
+
+type Queryable = Pool | PoolClient
+
+async function supersedePending(client: PoolClient, briefId: string): Promise<void> {
+  await client.query(
+    `UPDATE brief_analyses
+    SET status = 'error', error = 'Superseded by a newer analysis', completed_at = $2
+    WHERE brief_id = $1 AND status = 'pending'`,
+    [briefId, new Date().toISOString()],
+  )
+}
+
+async function insertPending(db: Queryable, briefId: string): Promise<Analysis> {
+  try {
+    const result = await db.query(
+      `INSERT INTO brief_analyses (id, brief_id, status, created_at)
+      VALUES ($1, $2, 'pending', $3)
+      RETURNING ${ANALYSIS_COLUMNS}`,
+      [randomUUID(), briefId, new Date().toISOString()],
+    )
+    return asAnalysis(result.rows[0])
+  } catch (err: unknown) {
+    if (postgresCode(err) === UNIQUE_VIOLATION) throw new AnalysisAlreadyRunning()
+    if (postgresCode(err) === FOREIGN_KEY_VIOLATION) throw new BriefNotFound()
+    throw err
+  }
 }
 
 export async function failInterruptedAnalyses(): Promise<void> {

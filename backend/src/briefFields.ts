@@ -55,6 +55,13 @@ export function briefUploadError(originalName: string): string | null {
   return 'Upload must be a PDF, DOCX, or plain text file'
 }
 
+export function briefContentError(originalName: string, bytes: Buffer): string | null {
+  const extensionError = briefUploadError(originalName)
+  if (extensionError) return extensionError
+  if (bytes.length === 0) return 'File is empty'
+  return contentError(path.extname(originalName).toLowerCase(), bytes)
+}
+
 export function clipBriefText(text: BriefText): BriefText {
   return {
     title: clip(text.title, SHORT_FIELD_MAX),
@@ -81,4 +88,17 @@ function readText(body: Record<string, unknown>, field: FieldRule): string | Fie
 
 function clip(value: string, max: number): string {
   return value.trim().slice(0, max)
+}
+
+function contentError(extension: string, bytes: Buffer): string | null {
+  if (extension === '.pdf' && !bytes.subarray(0, 1024).includes('%PDF-')) {
+    return 'File content is not a PDF'
+  }
+  if (extension === '.docx' && !isZip(bytes)) return 'File content is not a DOCX document'
+  if (extension === '.txt' && bytes.includes(0)) return 'Text file contains binary data'
+  return null
+}
+
+function isZip(bytes: Buffer): boolean {
+  return bytes.length >= 2 && bytes[0] === 0x50 && bytes[1] === 0x4b
 }

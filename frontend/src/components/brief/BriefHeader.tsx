@@ -1,18 +1,20 @@
 import ArrowBack from '@mui/icons-material/ArrowBack'
 import CategoryOutlined from '@mui/icons-material/CategoryOutlined'
 import DownloadOutlined from '@mui/icons-material/DownloadOutlined'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { Link } from 'react-router'
-import { briefFileUrl } from '../../api'
 import { briefTitle } from '../../briefForm'
+import { useBriefDownload } from '../../fileDownload'
 import { formatDateTime } from '../../format'
 import type { Brief } from '../../types'
 
 function BriefHeader({ brief }: { brief: Brief }) {
+  const download = useBriefDownload(brief.id, brief.file.originalName)
   return (
     <Stack spacing={1.5}>
       <Button
@@ -36,15 +38,16 @@ function BriefHeader({ brief }: { brief: Brief }) {
           <HeaderMeta brief={brief} />
         </Box>
         <Button
-          component="a"
-          href={briefFileUrl(brief.id)}
           variant="contained"
           startIcon={<DownloadOutlined />}
+          loading={download.downloading}
+          onClick={() => void download.download()}
           sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'auto' } }}
         >
           Download file
         </Button>
       </Stack>
+      {download.error && <Alert severity="error">{download.error}</Alert>}
     </Stack>
   )
 }

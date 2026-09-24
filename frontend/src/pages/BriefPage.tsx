@@ -21,16 +21,20 @@ type BriefState =
 
 function BriefPage() {
   const { id } = useParams()
+  const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<BriefState>({ kind: 'loading' })
+  const [refreshError, setRefreshError] = useState(false)
 
   useEffect(() => {
     if (!id) return
 
+    const request = attempt
     let cancelled = false
     api
       .get<Brief>(`/briefs/${id}`)
       .then((res) => {
-        if (!cancelled) setState({ kind: 'ok', id, brief: res.data })
+        if (cancelled || request !== attempt) return
+        setState({ kind: 'ok', id, brief: res.data })
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -44,19 +48,20 @@ function BriefPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, attempt])
 
   const refreshBrief = useCallback(() => {
     if (!id) return
     api
       .get<Brief>(`/briefs/${id}`)
       .then((res) => {
+        setRefreshError(false)
         setState((current) => {
           if (current.kind !== 'ok' || current.id !== id) return current
           return { kind: 'ok', id, brief: res.data }
         })
       })
-      .catch(() => undefined)
+      .catch(() => setRefreshError(true))
   }, [id])
 
   const view =
@@ -84,9 +89,20 @@ function BriefPage() {
     return (
       <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
         <Alert severity="error">Could not load brief</Alert>
-        <Button component={Link} to="/">
-          Go back home
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setState({ kind: 'loading' })
+              setAttempt((current) => current + 1)
+            }}
+          >
+            Retry
+          </Button>
+          <Button component={Link} to="/">
+            Go back home
+          </Button>
+        </Stack>
       </Stack>
     )
   }
@@ -96,6 +112,18 @@ function BriefPage() {
   return (
     <Stack spacing={3}>
       <BriefHeader brief={brief} />
+      {refreshError && (
+        <Alert
+          severity="warning"
+          action={
+            <Button color="inherit" size="small" onClick={refreshBrief}>
+              Retry
+            </Button>
+          }
+        >
+          Could not refresh brief details
+        </Alert>
+      )}
       <Grid container spacing={3} sx={{ alignItems: 'flex-start' }}>
         <Grid size={{ xs: 12, md: 8 }}>
           <BriefAnalysisPanel key={brief.id} briefId={brief.id} onSettled={refreshBrief} />

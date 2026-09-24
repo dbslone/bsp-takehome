@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography'
 import axios from 'axios'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
+import { apiErrorMessage } from '../apiError'
 import { formatDateTime } from '../format'
 import type { Analysis, AnalysisState } from '../types'
 import AnalysisHeader from './analysis/AnalysisHeader'
@@ -21,18 +22,47 @@ function BriefAnalysisPanel({ briefId, onSettled }: { briefId: string; onSettled
   const [state, setState] = useState<PanelState>({ kind: 'loading' })
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [pollWarning, setPollWarning] = useState<string | null>(null)
   const onSettledRef = useRef(onSettled)
   const previousStatus = useRef<string | null>(null)
+  const pendingRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
+  const retryRef = useRef<number | null>(null)
+  const loadRef = useRef<() => void>(() => undefined)
 
   const load = useCallback(() => {
+    if (retryRef.current !== null) {
+      window.clearTimeout(retryRef.current)
+      retryRef.current = null
+    }
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     api
-      .get<AnalysisState>(`/briefs/${briefId}/analysis`)
-      .then((res) => setState({ kind: 'ok', data: res.data }))
-      .catch(() => setState({ kind: 'error' }))
+      .get<AnalysisState>(`/briefs/${briefId}/analysis`, { signal: controller.signal })
+      .then((res) => {
+        pendingRef.current = res.data.latest?.status === 'pending'
+        setPollWarning(null)
+        setState({ kind: 'ok', data: res.data })
+      })
+      .catch((err: unknown) => {
+        if (axios.isCancel(err)) return
+        if (pendingRef.current) {
+          setPollWarning('Could not refresh the analysis. Retrying…')
+          retryRef.current = window.setTimeout(() => loadRef.current(), POLL_MS)
+          return
+        }
+        setState({ kind: 'error' })
+      })
   }, [briefId])
 
   useEffect(() => {
+    loadRef.current = load
     load()
+    return () => {
+      abortRef.current?.abort()
+      if (retryRef.current !== null) window.clearTimeout(retryRef.current)
+    }
   }, [load])
 
   useEffect(() => {
@@ -49,7 +79,8 @@ function BriefAnalysisPanel({ briefId, onSettled }: { briefId: string; onSettled
   }, [state])
 
   useEffect(() => {
-    if (state.kind !== 'ok' || state.data.latest?.status !== 'pending') return
+    const pending = state.kind === 'ok' && state.data.latest?.status === 'pending'
+    if (!pending) return
     const timer = window.setTimeout(load, POLL_MS)
     return () => window.clearTimeout(timer)
   }, [state, load])
@@ -61,7 +92,7 @@ function BriefAnalysisPanel({ briefId, onSettled }: { briefId: string; onSettled
       .post<Analysis>(`/briefs/${briefId}/analysis`)
       .catch((err: unknown) => {
         if (axios.isAxiosError(err) && err.response?.status === 409) return
-        setStartError('Could not start the analysis')
+        setStartError(apiErrorMessage(err, 'Could not start the analysis'))
       })
       .finally(() => {
         setStarting(false)
@@ -80,8 +111,27 @@ function BriefAnalysisPanel({ briefId, onSettled }: { briefId: string; onSettled
         onStart={start}
       />
       {startError && <Alert severity="error">{startError}</Alert>}
+      {pollWarning && <Alert severity="warning">{pollWarning}</Alert>}
       {state.kind === 'loading' && <Progress label="Loading analysis…" />}
-      {state.kind === 'error' && <Alert severity="error">Could not load the analysis</Alert>}
+      {state.kind === 'error' && (
+        <Alert
+          severity="error"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setState({ kind: 'loading' })
+                load()
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          Could not load the analysis
+        </Alert>
+      )}
       {data && <AnalysisBody data={data} starting={starting} onStart={start} />}
     </Stack>
   )

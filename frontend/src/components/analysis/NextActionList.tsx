@@ -28,10 +28,32 @@ function NextActionList({ actions }: { actions: NextAction[] }) {
               actions={actions.filter((action) => action.priority === priority)}
             />
           ))}
+          <OtherActions actions={actions.filter((action) => !isPriority(action.priority))} />
         </Stack>
       )}
     </SectionCard>
   )
+}
+
+function OtherActions({ actions }: { actions: NextAction[] }) {
+  if (actions.length === 0) return null
+  return (
+    <Stack spacing={1.5}>
+      <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+        Other
+      </Typography>
+      {actions.map((action) => (
+        <Stack key={itemKey(action)} direction="row" spacing={1.5}>
+          <RadioButtonUnchecked color="disabled" fontSize="small" sx={{ mt: 0.25 }} />
+          <ItemRow item={action} />
+        </Stack>
+      ))}
+    </Stack>
+  )
+}
+
+function isPriority(priority: string): priority is Priority {
+  return priority === 'now' || priority === 'soon' || priority === 'later'
 }
 
 function PriorityGroup({ priority, actions }: { priority: Priority; actions: NextAction[] }) {

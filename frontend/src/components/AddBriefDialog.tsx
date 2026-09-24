@@ -11,9 +11,9 @@ import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import axios from 'axios'
 import { useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
 import { api } from '../api'
+import { apiErrorMessage } from '../apiError'
 import {
   EMPTY_BRIEF_FORM,
   validateBriefForm,
@@ -30,7 +30,7 @@ const ALLOWED_EXTENSIONS = new Set(['.pdf', '.docx', '.txt'])
 type AddBriefDialogProps = {
   open: boolean
   onClose: () => void
-  onCreated: () => void
+  onCreated: (warning?: string) => void
 }
 
 function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
@@ -56,6 +56,11 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
   function updateField(field: BriefFormField, value: string) {
     setValues((current) => ({ ...current, [field]: value }))
     setFieldErrors((current) => clearFieldError(current, field))
+  }
+
+  function chooseFile(next: File | null) {
+    setFile(next)
+    setError(next ? uploadError(next) : null)
   }
 
   function handleClose() {
@@ -88,13 +93,13 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
     setDragDepth(0)
     if (submitting) return
     const dropped = event.dataTransfer.files[0]
-    if (dropped) setFile(dropped)
+    if (dropped) chooseFile(dropped)
   }
 
   function handleClearFile(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault()
     event.stopPropagation()
-    setFile(null)
+    chooseFile(null)
     setFileInputKey((key) => key + 1)
   }
 
@@ -117,17 +122,20 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
     setSubmitting(true)
     setError(null)
     try {
-      const created = await api.post<Brief>('/briefs', body)
+      const created = await api.post<Brief & { analysisError?: string }>('/briefs', body)
       if (!briefId(created.data)) {
         setError('Could not create brief')
         setSubmitting(false)
         return
       }
+      const warning = created.data.analysisError
+        ? `Brief saved, but analysis could not start. ${created.data.analysisError}`
+        : undefined
       resetForm()
-      onCreated()
+      onCreated(warning)
       onClose()
     } catch (err: unknown) {
-      setError(errorMessage(err))
+      setError(apiErrorMessage(err, 'Could not create brief'))
       setSubmitting(false)
     }
   }
@@ -185,7 +193,7 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
                 type="file"
                 accept=".pdf,.docx,.txt"
                 disabled={submitting}
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
                 sx={{
                   position: 'absolute',
                   width: 1,
@@ -263,6 +271,7 @@ function clearFieldError(errors: BriefFormErrors, field: BriefFormField): BriefF
 
 function uploadError(file: File | null): string | null {
   if (!file) return 'A file is required'
+  if (file.size === 0) return 'File is empty'
   if (!ALLOWED_EXTENSIONS.has(fileExtension(file.name))) {
     return 'Upload must be a PDF, DOCX, or plain text file'
   }
@@ -286,17 +295,6 @@ function briefId(data: Brief): string | null {
   if (typeof data.id !== 'string') return null
   const id = data.id.trim()
   return id || null
-}
-
-function errorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data: unknown = err.response?.data
-    if (typeof data === 'object' && data !== null && 'error' in data) {
-      const message = data.error
-      if (typeof message === 'string' && message) return message
-    }
-  }
-  return 'Could not create brief'
 }
 
 export default AddBriefDialog

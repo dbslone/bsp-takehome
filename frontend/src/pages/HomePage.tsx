@@ -10,7 +10,8 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import { useCallback, useEffect, useState } from 'react'
+import axios from 'axios'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api'
 import { briefTitle } from '../briefForm'
@@ -23,16 +24,28 @@ function HomePage() {
   const navigate = useNavigate()
   const [briefs, setBriefs] = useState<BriefsState>({ kind: 'loading' })
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const load = useCallback(() => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     api
-      .get<Brief[]>('/briefs')
-      .then((res) => setBriefs({ kind: 'ok', briefs: res.data }))
-      .catch(() => setBriefs({ kind: 'error' }))
+      .get<unknown>('/briefs', { signal: controller.signal })
+      .then((res) => {
+        const list = asBriefList(res.data)
+        setBriefs(list ? { kind: 'ok', briefs: list } : { kind: 'error' })
+      })
+      .catch((err: unknown) => {
+        if (axios.isCancel(err)) return
+        setBriefs({ kind: 'error' })
+      })
   }, [])
 
   useEffect(() => {
     load()
+    return () => abortRef.current?.abort()
   }, [load])
 
   return (
@@ -43,7 +56,30 @@ function HomePage() {
           <Typography color="text.secondary">Loading…</Typography>
         </Stack>
       )}
-      {briefs.kind === 'error' && <Alert severity="error">Could not load briefs</Alert>}
+      {notice && (
+        <Alert severity="warning" onClose={() => setNotice(null)}>
+          {notice}
+        </Alert>
+      )}
+      {briefs.kind === 'error' && (
+        <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
+          <Alert severity="error">Could not load briefs</Alert>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setBriefs({ kind: 'loading' })
+                load()
+              }}
+            >
+              Retry
+            </Button>
+            <Button variant="outlined" onClick={() => setDialogOpen(true)}>
+              Add brief
+            </Button>
+          </Stack>
+        </Stack>
+      )}
       {briefs.kind === 'ok' && briefs.briefs.length === 0 && (
         <Stack spacing={2} sx={{ alignItems: 'center', py: 6 }}>
           <Typography color="text.secondary">No briefs found</Typography>
@@ -101,9 +137,28 @@ function HomePage() {
           </TableContainer>
         </>
       )}
-      <AddBriefDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onCreated={load} />
+      <AddBriefDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={(warning) => {
+          load()
+          setNotice(warning ?? null)
+        }}
+      />
     </Stack>
   )
+}
+
+function asBriefList(value: unknown): Brief[] | null {
+  if (!Array.isArray(value) || value.some((item) => !isBrief(item))) return null
+  return value
+}
+
+function isBrief(value: unknown): value is Brief {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('id' in value) || typeof value.id !== 'string') return false
+  if (!('file' in value) || typeof value.file !== 'object' || value.file === null) return false
+  return 'originalName' in value.file && typeof value.file.originalName === 'string'
 }
 
 function textOrDash(value: string): string {

@@ -12,7 +12,7 @@
     "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w backend && npm run build -w frontend",
     "start": "npm run start -w backend",
-    "test": "tsx --test backend/src/briefFields.test.ts",
+    "test": "tsx --test backend/src/*.test.ts",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "prettier --write .",

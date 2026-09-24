@@ -42,30 +42,6 @@ function storedFile(file: IncomingFile): BriefFile {
   }
 }
 
-function withBlankFields(existing: Brief, extracted: BriefText): BriefText {
-  return {
-    title: keepOrFill(existing.title, extracted.title),
-    description: keepOrFill(existing.description, extracted.description),
-    contentType: keepOrFill(existing.contentType, extracted.contentType),
-    targetAudience: keepOrFill(existing.targetAudience, extracted.targetAudience),
-    notes: keepOrFill(existing.notes, extracted.notes),
-  }
-}
-
-function keepOrFill(current: string, extracted: string): string {
-  return current.trim() ? current : extracted
-}
-
-function sameBriefText(existing: Brief, text: BriefText): boolean {
-  return (
-    existing.title === text.title &&
-    existing.description === text.description &&
-    existing.contentType === text.contentType &&
-    existing.targetAudience === text.targetAudience &&
-    existing.notes === text.notes
-  )
-}
-
 function briefText(existing: Brief, patch: BriefPatch): BriefText {
   return {
     title: patch.title ?? existing.title,
@@ -104,11 +80,12 @@ export async function getBriefFile(id: string): Promise<BriefUpload | null> {
   if (typeof row !== 'object' || row === null) return null
   const value = row as Record<string, unknown>
   if (typeof value.file_name !== 'string' || typeof value.file_mime !== 'string') return null
-  if (!Buffer.isBuffer(value.file_bytes)) return null
+  const bytes = fileBytes(value.file_bytes)
+  if (!bytes) return null
   return {
     originalName: value.file_name,
     mimeType: value.file_mime,
-    bytes: value.file_bytes,
+    bytes,
   }
 }
 
@@ -141,11 +118,41 @@ export async function createBrief(text: BriefText, file: IncomingFile): Promise<
 }
 
 export async function fillBlankBriefFields(id: string, extracted: BriefText): Promise<void> {
-  const existing = await readBrief(id)
-  if (!existing) return
-  const text = withBlankFields(existing, clipBriefText(extracted))
-  if (sameBriefText(existing, text)) return
-  await updateBriefText(id, text, new Date().toISOString())
+  if (!ID_PATTERN.test(id)) return
+  const text = clipBriefText(extracted)
+  await getPool().query(
+    `UPDATE briefs SET
+      title = CASE WHEN btrim(title) = '' AND $2 <> '' THEN $2 ELSE title END,
+      description = CASE WHEN btrim(description) = '' AND $3 <> '' THEN $3 ELSE description END,
+      content_type = CASE WHEN btrim(content_type) = '' AND $4 <> '' THEN $4 ELSE content_type END,
+      target_audience = CASE WHEN btrim(target_audience) = '' AND $5 <> '' THEN $5 ELSE target_audience END,
+      notes = CASE WHEN btrim(notes) = '' AND $6 <> '' THEN $6 ELSE notes END,
+      updated_at = CASE
+        WHEN (btrim(title) = '' AND $2 <> '')
+          OR (btrim(description) = '' AND $3 <> '')
+          OR (btrim(content_type) = '' AND $4 <> '')
+          OR (btrim(target_audience) = '' AND $5 <> '')
+          OR (btrim(notes) = '' AND $6 <> '')
+        THEN $7
+        ELSE updated_at
+      END
+    WHERE id = $1`,
+    [
+      id,
+      text.title,
+      text.description,
+      text.contentType,
+      text.targetAudience,
+      text.notes,
+      new Date().toISOString(),
+    ],
+  )
+}
+
+function fileBytes(value: unknown): Buffer | null {
+  if (Buffer.isBuffer(value)) return value
+  if (value instanceof Uint8Array) return Buffer.from(value)
+  return null
 }
 
 export async function updateBrief(id: string, patch: BriefPatch): Promise<Brief | null> {
