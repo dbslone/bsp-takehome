@@ -252,7 +252,7 @@ A new analysis section (rather than a brief field) is a change to `BriefAnalysis
 - **Model routing.** Every brief uses the same OpenRouter model list.
 - **Images.** Uploads are PDF, DOCX, and plain text only.
 - **Error tracking.** Failures show up in server logs and the analysis `error` column. `GET /api/health` is the check that is built.
-- **Paid models, validation retries, and object storage.**
+- **Paid models, validation retries, and S3-compatible uploads.**
 
 ### With more time
 
@@ -269,8 +269,10 @@ Lint, format, the pre-commit hook, and GitHub Actions (lint, Prettier, `npm test
 - **Database tests.** Integration tests for create, the one-pending-analysis rule, and a superseded run that must not overwrite a newer result. Current tests cover parsing, validation, and field limits without Postgres.
 - **Reviewed fixtures.** A small set of briefs a person has checked, so a prompt or schema change is judged on whether the team could act on the output.
 - **Pull request checks.** Secret scanning and dependency review. Production secrets stay in the host's environment.
-- **Operations.** Structured logs, an error tracker, and rate limits on create and on the model call.
-- **Auth and file storage.** Login in front of the briefs, and file bytes in object storage once uploads outgrow a demo. A second app instance can read files from Postgres. It cannot cancel a model call running in another process, because that abort map is in memory.
+- **S3-compatible uploads.** Store file bytes in S3-compatible object storage instead of the `file_bytes` column, so Postgres is not the file store and more than one app instance can serve the same files.
+- **OpenTelemetry.** Export traces, metrics, and logs, and send errors to an error tracker. Postgres monitoring (connections, disk, and slow queries) is part of those metrics. Alert when a metric crosses its threshold. Rate-limit create and the model call.
+- **Failure runbooks.** One runbook for each failure: database down, an S3 upload or download error, OpenRouter timeout or rate limit, an analysis left pending, and a model response that fails validation.
+- **Auth.** Login in front of the briefs. A second app instance can read files from object storage. It cannot cancel a model call running in another process, because that abort map is in memory.
 - **Reviewed prompts.** The prompt and the Zod schema stay in the repo and are reviewed like code. A change to validation, error copy, or the prompt needs a test, and CI must pass typecheck, lint, and tests before merge. A model response that fails the schema is never stored as success and never rendered. Cursor rules in `.cursor/rules` are the local version of that bar. They are not a substitute for CI.
 
 ## Where AI coding tools helped
