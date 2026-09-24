@@ -17,7 +17,7 @@ function Layout() {
   return (
     <>
       <AppBar position="sticky">
-        <Container maxWidth="md">
+        <Container maxWidth="lg">
           <Toolbar disableGutters sx={{ gap: 2 }}>
             <Typography variant="h6" component="h1">
               BSP Takehome
@@ -32,7 +32,7 @@ function Layout() {
           </Toolbar>
         </Container>
       </AppBar>
-      <Container component="main" maxWidth="md" sx={{ py: 4 }}>
+      <Container component="main" maxWidth="lg" sx={{ py: 4 }}>
         <Outlet />
       </Container>
     </>

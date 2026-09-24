@@ -1,6 +1,6 @@
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import CircularProgress from '@mui/material/CircularProgress'
+import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import axios from 'axios'
@@ -8,6 +8,9 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api } from '../api'
 import BriefAnalysisPanel from '../components/BriefAnalysisPanel'
+import BriefHeader from '../components/brief/BriefHeader'
+import BriefPageSkeleton from '../components/brief/BriefPageSkeleton'
+import BriefSidebar from '../components/brief/BriefSidebar'
 import type { Brief } from '../types'
 
 type BriefState =
@@ -61,12 +64,7 @@ function BriefPage() {
   }
 
   if (view.kind === 'loading') {
-    return (
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-        <CircularProgress size={20} />
-        <Typography color="text.secondary">Loading…</Typography>
-      </Stack>
-    )
+    return <BriefPageSkeleton />
   }
 
   if (view.kind === 'error') {
@@ -84,57 +82,17 @@ function BriefPage() {
 
   return (
     <Stack spacing={3}>
-      <Button component={Link} to="/" sx={{ alignSelf: 'flex-start' }}>
-        Back
-      </Button>
-      <Typography variant="h4" component="h2">
-        {brief.title}
-      </Typography>
-      <Stack spacing={2}>
-        <Field label="Description" value={brief.description} />
-        <Field label="Content type" value={brief.contentType} />
-        <Field label="Target audience" value={brief.targetAudience} />
-        <Field label="Notes" value={brief.notes} />
-        <Field label="File" value={brief.file.originalName} />
-        <Field label="File type" value={brief.file.mimeType} />
-        <Field label="File size" value={formatBytes(brief.file.size)} />
-        <Field label="Created" value={formatDateTime(brief.createdAt)} />
-        <Field label="Updated" value={formatDateTime(brief.updatedAt)} />
-      </Stack>
-      <Button
-        component="a"
-        href={`/api/briefs/${brief.id}/file`}
-        variant="contained"
-        sx={{ alignSelf: 'flex-start' }}
-      >
-        Download file
-      </Button>
-      <BriefAnalysisPanel key={brief.id} briefId={brief.id} />
+      <BriefHeader brief={brief} />
+      <Grid container spacing={3} sx={{ alignItems: 'flex-start' }}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <BriefAnalysisPanel key={brief.id} briefId={brief.id} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }} sx={{ alignSelf: 'stretch' }}>
+          <BriefSidebar brief={brief} />
+        </Grid>
+      </Grid>
     </Stack>
   )
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <Stack spacing={0.5}>
-      <Typography variant="body2" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{value.trim() ? value : '—'}</Typography>
-    </Stack>
-  )
-}
-
-function formatDateTime(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString()
-}
-
-function formatBytes(size: number): string {
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export default BriefPage
