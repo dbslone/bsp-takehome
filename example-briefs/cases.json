@@ -1,0 +1,50 @@
+[
+  {
+    "name": "complete",
+    "file": "complete.txt",
+    "fields": {
+      "title": "Harbor Light Campaign",
+      "description": "A 30-second brand film introducing Harbor Light coffee to weekday commuters.",
+      "contentType": "brand film",
+      "targetAudience": "weekday commuters in coastal cities",
+      "notes": "Deliver a 30-second cut and a 15-second cut. Budget is $80,000. Shoot in March."
+    },
+    "expect": "success"
+  },
+  {
+    "name": "file-only",
+    "file": "file-only.txt",
+    "fields": {
+      "title": "",
+      "description": "",
+      "contentType": "",
+      "targetAudience": "",
+      "notes": ""
+    },
+    "expect": "success"
+  },
+  {
+    "name": "title-too-long",
+    "file": "title-too-long.txt",
+    "fields": {
+      "title": "Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring product launch film Spring produc",
+      "description": "A short brief whose title exceeds the 255 character limit.",
+      "contentType": "brand film",
+      "targetAudience": "weekday commuters",
+      "notes": "The title is the only invalid field."
+    },
+    "expect": "fail"
+  },
+  {
+    "name": "bad-extension",
+    "file": "poster.png",
+    "fields": {
+      "title": "Launch poster",
+      "description": "A still poster for the spring launch.",
+      "contentType": "poster",
+      "targetAudience": "retail shoppers",
+      "notes": "PNG uploads are not accepted."
+    },
+    "expect": "fail"
+  }
+]

@@ -11,6 +11,7 @@ export type {
 } from './types.js'
 export {
   createBrief,
+  fillBlankBriefFields,
   getBrief,
   getBriefFile,
   listBriefs,

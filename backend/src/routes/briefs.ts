@@ -1,7 +1,7 @@
-import path from 'node:path'
 import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer from 'multer'
 import { startAnalysis } from '../analysis/run.js'
+import { briefPatchFromBody, briefTextFromBody, briefUploadError } from '../briefFields.js'
 import {
   createBrief,
   getAnalysisState,
@@ -11,12 +11,10 @@ import {
   listBriefs,
   removeBrief,
   updateBrief,
-  type BriefPatch,
   type IncomingFile,
 } from '../store/index.js'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-const ALLOWED_EXTENSIONS = new Set(['.pdf', '.docx', '.txt'])
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -30,31 +28,22 @@ briefsRouter.get('/', async (_req, res) => {
 })
 
 briefsRouter.post('/', receiveUpload, async (req, res) => {
-  const body = readBody(req.body)
-  const title = textField(body, 'title')
-  if (!title) {
-    res.status(400).json({ error: 'Title is required' })
-    return
-  }
   if (!req.file) {
     res.status(400).json({ error: 'A file is required' })
     return
   }
-  if (!isAllowedUpload(req.file)) {
-    res.status(400).json({ error: 'Upload must be a PDF, DOCX, or plain text file' })
+  const uploadError = briefUploadError(req.file.originalname)
+  if (uploadError) {
+    res.status(400).json({ error: uploadError })
+    return
+  }
+  const parsed = briefTextFromBody(readBody(req.body))
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error })
     return
   }
 
-  const brief = await createBrief(
-    {
-      title,
-      description: textField(body, 'description') ?? '',
-      contentType: textField(body, 'contentType') ?? '',
-      targetAudience: textField(body, 'targetAudience') ?? '',
-      notes: textField(body, 'notes') ?? '',
-    },
-    incomingFile(req.file),
-  )
+  const brief = await createBrief(parsed.text, incomingFile(req.file))
   await queueAnalysis(brief.id)
   res.status(201).json(brief)
 })
@@ -109,25 +98,17 @@ briefsRouter.patch('/:id', receiveUpload, async (req: Request<{ id: string }>, r
     return
   }
 
-  const body = readBody(req.body)
-  const patch: BriefPatch = {}
-  if ('title' in body) {
-    const title = textField(body, 'title')
-    if (!title) {
-      res.status(400).json({ error: 'Title is required' })
-      return
-    }
-    patch.title = title
+  const parsed = briefPatchFromBody(readBody(req.body))
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error })
+    return
   }
-  for (const key of ['description', 'contentType', 'targetAudience', 'notes'] as const) {
-    if (key in body) {
-      patch[key] = textField(body, key) ?? ''
-    }
-  }
+  const patch = parsed.patch
 
   if (req.file) {
-    if (!isAllowedUpload(req.file)) {
-      res.status(400).json({ error: 'Upload must be a PDF, DOCX, or plain text file' })
+    const uploadError = briefUploadError(req.file.originalname)
+    if (uploadError) {
+      res.status(400).json({ error: uploadError })
       return
     }
     patch.file = incomingFile(req.file)
@@ -182,17 +163,6 @@ function readBody(body: unknown): Record<string, unknown> {
     return body as Record<string, unknown>
   }
   return {}
-}
-
-function textField(body: Record<string, unknown>, key: string): string | undefined {
-  if (!(key in body)) return undefined
-  const value = body[key]
-  if (typeof value !== 'string') return undefined
-  return value.trim()
-}
-
-function isAllowedUpload(file: Express.Multer.File): boolean {
-  return ALLOWED_EXTENSIONS.has(path.extname(file.originalname).toLowerCase())
 }
 
 function incomingFile(file: Express.Multer.File): IncomingFile {

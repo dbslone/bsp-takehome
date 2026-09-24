@@ -10,12 +10,19 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import axios from 'axios'
 import { useState, type DragEvent, type FormEvent, type MouseEvent } from 'react'
 import { api } from '../api'
+import {
+  EMPTY_BRIEF_FORM,
+  validateBriefForm,
+  type BriefFormErrors,
+  type BriefFormField,
+  type BriefFormValues,
+} from '../briefForm'
 import type { Brief } from '../types'
+import BriefFormFields from './brief/BriefFormFields'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.docx', '.txt'])
@@ -27,11 +34,8 @@ type AddBriefDialogProps = {
 }
 
 function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [contentType, setContentType] = useState('')
-  const [targetAudience, setTargetAudience] = useState('')
-  const [notes, setNotes] = useState('')
+  const [values, setValues] = useState<BriefFormValues>(EMPTY_BRIEF_FORM)
+  const [fieldErrors, setFieldErrors] = useState<BriefFormErrors>({})
   const [file, setFile] = useState<File | null>(null)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [dragDepth, setDragDepth] = useState(0)
@@ -40,16 +44,18 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
   const dragOver = dragDepth > 0 && !submitting
 
   function resetForm() {
-    setTitle('')
-    setDescription('')
-    setContentType('')
-    setTargetAudience('')
-    setNotes('')
+    setValues(EMPTY_BRIEF_FORM)
+    setFieldErrors({})
     setFile(null)
     setFileInputKey((key) => key + 1)
     setDragDepth(0)
     setError(null)
     setSubmitting(false)
+  }
+
+  function updateField(field: BriefFormField, value: string) {
+    setValues((current) => ({ ...current, [field]: value }))
+    setFieldErrors((current) => clearFieldError(current, field))
   }
 
   function handleClose() {
@@ -94,37 +100,29 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) {
-      setError('Title is required')
-      return
-    }
-    if (!file) {
-      setError('A file is required')
-      return
-    }
-    const extension = fileExtension(file.name)
-    if (!ALLOWED_EXTENSIONS.has(extension)) {
-      setError('Upload must be a PDF, DOCX, or plain text file')
-      return
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError('File must be 10 MB or smaller')
+    setError(null)
+    const errors = validateBriefForm(values)
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
+    const fileError = uploadError(file)
+    if (fileError || !file) {
+      setError(fileError ?? 'A file is required')
       return
     }
 
     const body = new FormData()
-    body.set('title', trimmedTitle)
-    body.set('description', description.trim())
-    body.set('contentType', contentType.trim())
-    body.set('targetAudience', targetAudience.trim())
-    body.set('notes', notes.trim())
+    appendBriefFields(body, values)
     body.set('file', file)
 
     setSubmitting(true)
     setError(null)
     try {
-      await api.post<Brief>('/briefs', body)
+      const created = await api.post<Brief>('/briefs', body)
+      if (!briefId(created.data)) {
+        setError('Could not create brief')
+        setSubmitting(false)
+        return
+      }
       resetForm()
       onCreated()
       onClose()
@@ -141,40 +139,11 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
         <DialogContent>
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
-            <TextField
-              label="Title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              required
-              fullWidth
-            />
-            <TextField
-              label="Description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              multiline
-              minRows={2}
-              fullWidth
-            />
-            <TextField
-              label="Content type"
-              value={contentType}
-              onChange={(event) => setContentType(event.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Target audience"
-              value={targetAudience}
-              onChange={(event) => setTargetAudience(event.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              multiline
-              minRows={2}
-              fullWidth
+            <BriefFormFields
+              values={values}
+              errors={fieldErrors}
+              disabled={submitting}
+              onChange={updateField}
             />
             <Box
               component="label"
@@ -277,6 +246,30 @@ function AddBriefDialog({ open, onClose, onCreated }: AddBriefDialogProps) {
   )
 }
 
+function appendBriefFields(body: FormData, values: BriefFormValues) {
+  body.set('title', values.title.trim())
+  body.set('description', values.description.trim())
+  body.set('contentType', values.contentType.trim())
+  body.set('targetAudience', values.targetAudience.trim())
+  body.set('notes', values.notes.trim())
+}
+
+function clearFieldError(errors: BriefFormErrors, field: BriefFormField): BriefFormErrors {
+  if (!errors[field]) return errors
+  const next = { ...errors }
+  delete next[field]
+  return next
+}
+
+function uploadError(file: File | null): string | null {
+  if (!file) return 'A file is required'
+  if (!ALLOWED_EXTENSIONS.has(fileExtension(file.name))) {
+    return 'Upload must be a PDF, DOCX, or plain text file'
+  }
+  if (file.size > MAX_UPLOAD_BYTES) return 'File must be 10 MB or smaller'
+  return null
+}
+
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
@@ -287,6 +280,12 @@ function fileExtension(name: string): string {
   const dot = name.lastIndexOf('.')
   if (dot < 0) return ''
   return name.slice(dot).toLowerCase()
+}
+
+function briefId(data: Brief): string | null {
+  if (typeof data.id !== 'string') return null
+  const id = data.id.trim()
+  return id || null
 }
 
 function errorMessage(err: unknown): string {

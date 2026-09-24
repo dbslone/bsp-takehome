@@ -4,7 +4,7 @@ import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import axios from 'axios'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api } from '../api'
 import BriefAnalysisPanel from '../components/BriefAnalysisPanel'
@@ -46,6 +46,19 @@ function BriefPage() {
     }
   }, [id])
 
+  const refreshBrief = useCallback(() => {
+    if (!id) return
+    api
+      .get<Brief>(`/briefs/${id}`)
+      .then((res) => {
+        setState((current) => {
+          if (current.kind !== 'ok' || current.id !== id) return current
+          return { kind: 'ok', id, brief: res.data }
+        })
+      })
+      .catch(() => undefined)
+  }, [id])
+
   const view =
     id && state.kind !== 'loading' && state.id === id ? state : { kind: 'loading' as const }
 
@@ -85,7 +98,7 @@ function BriefPage() {
       <BriefHeader brief={brief} />
       <Grid container spacing={3} sx={{ alignItems: 'flex-start' }}>
         <Grid size={{ xs: 12, md: 8 }}>
-          <BriefAnalysisPanel key={brief.id} briefId={brief.id} />
+          <BriefAnalysisPanel key={brief.id} briefId={brief.id} onSettled={refreshBrief} />
         </Grid>
         <Grid size={{ xs: 12, md: 4 }} sx={{ alignSelf: 'stretch' }}>
           <BriefSidebar brief={brief} />

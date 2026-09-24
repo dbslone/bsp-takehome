@@ -42,6 +42,26 @@ export const BriefAnalysis = z.object({
 
 export type BriefAnalysis = z.infer<typeof BriefAnalysis>
 
-const { $schema: _schema, ...jsonSchema } = z.toJSONSchema(BriefAnalysis)
+export const ExtractedBrief = z.object({
+  title: z
+    .string()
+    .describe('Title from the file, at most 255 characters. Empty string if unstated'),
+  description: z.string().describe('What the work is. Empty string if unstated'),
+  contentType: z
+    .string()
+    .describe('Content classification, at most 255 characters. Empty string if unstated'),
+  targetAudience: z
+    .string()
+    .describe('Audience named in the file, at most 255 characters. Empty string if unstated'),
+  notes: z
+    .string()
+    .describe('Timing, budget, deliverables, and other notes. Empty string if unstated'),
+})
 
-export const briefAnalysisJsonSchema: Record<string, unknown> = jsonSchema
+export const ModelResponse = BriefAnalysis.extend({
+  extracted: ExtractedBrief.describe('Brief fields copied from the attached file'),
+})
+
+const { $schema: _schema, ...jsonSchema } = z.toJSONSchema(ModelResponse)
+
+export const modelResponseJsonSchema: Record<string, unknown> = jsonSchema

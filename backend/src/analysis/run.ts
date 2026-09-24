@@ -3,17 +3,20 @@ import {
   completeAnalysis,
   createAnalysis,
   failAnalysis,
+  fillBlankBriefFields,
   getBrief,
   getBriefFile,
   type Analysis,
+  type BriefText,
 } from '../store/index.js'
 import { fileContent, type FileContent } from './extract.js'
 import { callOpenRouter, OpenRouterError, type Completion, type Message } from './openrouter.js'
-import { BriefAnalysis, briefAnalysisJsonSchema } from './schema.js'
+import { ModelResponse, modelResponseJsonSchema, type BriefAnalysis } from './schema.js'
 
 const SYSTEM_PROMPT = `You are a senior creative strategist reviewing a creative brief for a production team.
 Read the brief form fields and the attached file, then respond with a single JSON object that matches the provided schema exactly. Do not include any text outside the JSON.
 
+- extracted: title, description, contentType, targetAudience, and notes taken from the attached file. Form lines that say "(not provided)" are blank. Use an empty string when the file does not state a value. Title, content type, and target audience must each be 255 characters or fewer.
 - themes: summarize the brief, list its primary themes, classify the content type, and describe the tone.
 - audience: quote the stated audience (or null if none), explain who the audience really is, and list useful segments.
 - strengths: what the brief does well and the creative opportunities it opens up.
@@ -32,6 +35,7 @@ async function runAnalysis(analysisId: string, briefId: string): Promise<void> {
   try {
     const outcome = await analyze(briefId)
     if (outcome.ok) {
+      await fillBlankBriefFields(briefId, outcome.extracted)
       await completeAnalysis(analysisId, { model: outcome.model, result: outcome.result })
     } else {
       await failAnalysis(analysisId, outcome)
@@ -45,7 +49,7 @@ async function runAnalysis(analysisId: string, briefId: string): Promise<void> {
 }
 
 type Outcome =
-  | { ok: true; model: string; result: BriefAnalysis }
+  | { ok: true; model: string; result: BriefAnalysis; extracted: BriefText }
   | { ok: false; error: string; model?: string; rawResponse?: string }
 
 async function analyze(briefId: string): Promise<Outcome> {
@@ -62,7 +66,7 @@ async function analyze(briefId: string): Promise<Outcome> {
   }
 
   const fields = [
-    `Title: ${brief.title}`,
+    `Title: ${brief.title || '(not provided)'}`,
     `Description: ${brief.description || '(not provided)'}`,
     `Content type: ${brief.contentType || '(not provided)'}`,
     `Target audience: ${brief.targetAudience || '(not provided)'}`,
@@ -81,7 +85,7 @@ async function analyze(briefId: string): Promise<Outcome> {
   try {
     completion = await callOpenRouter(messages, {
       plugins: content.plugins,
-      schema: briefAnalysisJsonSchema,
+      schema: modelResponseJsonSchema,
     })
   } catch (err: unknown) {
     if (err instanceof OpenRouterError) {
@@ -90,15 +94,17 @@ async function analyze(briefId: string): Promise<Outcome> {
     throw err
   }
 
+  return readModelResponse(completion)
+}
+
+function readModelResponse(completion: Completion): Outcome {
   const { model, content: raw } = completion
-  let json: unknown
-  try {
-    json = JSON.parse(extractJson(raw))
-  } catch {
+  const json = parseJson(raw)
+  if (!json.ok) {
     return { ok: false, error: 'The model did not return valid JSON', model, rawResponse: raw }
   }
 
-  const parsed = BriefAnalysis.safeParse(json)
+  const parsed = ModelResponse.safeParse(json.value)
   if (!parsed.success) {
     return {
       ok: false,
@@ -107,7 +113,17 @@ async function analyze(briefId: string): Promise<Outcome> {
       rawResponse: raw,
     }
   }
-  return { ok: true, model, result: parsed.data }
+
+  const { extracted, ...result } = parsed.data
+  return { ok: true, model, result, extracted }
+}
+
+function parseJson(raw: string): { ok: true; value: unknown } | { ok: false } {
+  try {
+    return { ok: true, value: JSON.parse(extractJson(raw)) }
+  } catch {
+    return { ok: false }
+  }
 }
 
 function extractJson(raw: string): string {

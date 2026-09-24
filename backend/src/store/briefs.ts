@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { clipBriefText } from '../briefFields.js'
 import { getPool } from '../db/pool.js'
 import { asRecord, ID_PATTERN, requiredString, timestamp } from './row.js'
 import type { Brief, BriefFile, BriefPatch, BriefText, BriefUpload, IncomingFile } from './types.js'
@@ -39,6 +40,30 @@ function storedFile(file: IncomingFile): BriefFile {
     mimeType: file.mimeType,
     size: file.size,
   }
+}
+
+function withBlankFields(existing: Brief, extracted: BriefText): BriefText {
+  return {
+    title: keepOrFill(existing.title, extracted.title),
+    description: keepOrFill(existing.description, extracted.description),
+    contentType: keepOrFill(existing.contentType, extracted.contentType),
+    targetAudience: keepOrFill(existing.targetAudience, extracted.targetAudience),
+    notes: keepOrFill(existing.notes, extracted.notes),
+  }
+}
+
+function keepOrFill(current: string, extracted: string): string {
+  return current.trim() ? current : extracted
+}
+
+function sameBriefText(existing: Brief, text: BriefText): boolean {
+  return (
+    existing.title === text.title &&
+    existing.description === text.description &&
+    existing.contentType === text.contentType &&
+    existing.targetAudience === text.targetAudience &&
+    existing.notes === text.notes
+  )
 }
 
 function briefText(existing: Brief, patch: BriefPatch): BriefText {
@@ -113,6 +138,14 @@ export async function createBrief(text: BriefText, file: IncomingFile): Promise<
     ],
   )
   return asBrief(result.rows[0])
+}
+
+export async function fillBlankBriefFields(id: string, extracted: BriefText): Promise<void> {
+  const existing = await readBrief(id)
+  if (!existing) return
+  const text = withBlankFields(existing, clipBriefText(extracted))
+  if (sameBriefText(existing, text)) return
+  await updateBriefText(id, text, new Date().toISOString())
 }
 
 export async function updateBrief(id: string, patch: BriefPatch): Promise<Brief | null> {

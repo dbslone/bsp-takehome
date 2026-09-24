@@ -5,7 +5,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import axios from 'axios'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { formatDateTime } from '../format'
 import type { Analysis, AnalysisState } from '../types'
@@ -17,10 +17,12 @@ const POLL_MS = 3000
 
 type PanelState = { kind: 'loading' } | { kind: 'ok'; data: AnalysisState } | { kind: 'error' }
 
-function BriefAnalysisPanel({ briefId }: { briefId: string }) {
+function BriefAnalysisPanel({ briefId, onSettled }: { briefId: string; onSettled?: () => void }) {
   const [state, setState] = useState<PanelState>({ kind: 'loading' })
   const [starting, setStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const onSettledRef = useRef(onSettled)
+  const previousStatus = useRef<string | null>(null)
 
   const load = useCallback(() => {
     api
@@ -32,6 +34,19 @@ function BriefAnalysisPanel({ briefId }: { briefId: string }) {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    onSettledRef.current = onSettled
+  }, [onSettled])
+
+  useEffect(() => {
+    if (state.kind !== 'ok') return
+    const status = state.data.latest?.status ?? null
+    if (previousStatus.current === 'pending' && status && status !== 'pending') {
+      onSettledRef.current?.()
+    }
+    previousStatus.current = status
+  }, [state])
 
   useEffect(() => {
     if (state.kind !== 'ok' || state.data.latest?.status !== 'pending') return

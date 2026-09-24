@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { api } from '../api'
+import { briefTitle } from '../briefForm'
 import AddBriefDialog from '../components/AddBriefDialog'
 import type { Brief } from '../types'
 
@@ -78,7 +79,7 @@ function HomePage() {
                     key={brief.id}
                     hover
                     tabIndex={0}
-                    aria-label={`Open ${brief.title}`}
+                    aria-label={`Open ${briefTitle(brief)}`}
                     onClick={() => navigate(`/brief/${brief.id}`)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' || event.key === ' ') {
@@ -88,7 +89,7 @@ function HomePage() {
                     }}
                     sx={{ cursor: 'pointer' }}
                   >
-                    <TableCell>{brief.title}</TableCell>
+                    <TableCell>{briefTitle(brief)}</TableCell>
                     <TableCell>{textOrDash(brief.contentType)}</TableCell>
                     <TableCell>{textOrDash(brief.targetAudience)}</TableCell>
                     <TableCell>{brief.file.originalName}</TableCell>

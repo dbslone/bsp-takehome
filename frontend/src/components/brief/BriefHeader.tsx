@@ -8,6 +8,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { Link } from 'react-router'
 import { briefFileUrl } from '../../api'
+import { briefTitle } from '../../briefForm'
 import { formatDateTime } from '../../format'
 import type { Brief } from '../../types'
 
@@ -30,7 +31,7 @@ function BriefHeader({ brief }: { brief: Brief }) {
       >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="h4" component="h2" sx={{ wordBreak: 'break-word' }}>
-            {brief.title}
+            {briefTitle(brief)}
           </Typography>
           <HeaderMeta brief={brief} />
         </Box>
