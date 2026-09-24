@@ -7,6 +7,7 @@ import axios from 'axios'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api } from '../api'
+import BriefAnalysisPanel from '../components/BriefAnalysisPanel'
 import type { Brief } from '../types'
 
 type BriefState =
@@ -108,6 +109,7 @@ function BriefPage() {
       >
         Download file
       </Button>
+      <BriefAnalysisPanel key={brief.id} briefId={brief.id} />
     </Stack>
   )
 }

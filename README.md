@@ -118,12 +118,14 @@ npm run lint -w frontend
 
 ## Configuration
 
-| Variable       | Default         | Description                                                                                                                                                                            |
-| -------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL` |                 | Postgres connection string. Required.                                                                                                                                                  |
-| `DATABASE_SSL` |                 | Set to `true` to connect with TLS without verifying the server certificate. Also enabled when `DATABASE_URL` includes `sslmode=require`, `verify-ca`, or `verify-full`.                |
-| `PORT`         | `3001`          | Backend listen port                                                                                                                                                                    |
-| `STATIC_DIR`   | `frontend/dist` | Built frontend to serve. Resolved from the repo layout, not the process working directory. Skipped when that folder has no `index.html`, which is the case during local `npm run dev`. |
+| Variable             | Default                                  | Description                                                                                                                                                                            |
+| -------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       |                                          | Postgres connection string. Required.                                                                                                                                                  |
+| `DATABASE_SSL`       |                                          | Set to `true` to connect with TLS without verifying the server certificate. Also enabled when `DATABASE_URL` includes `sslmode=require`, `verify-ca`, or `verify-full`.                |
+| `OPENROUTER_API_KEY` |                                          | OpenRouter API key used to analyze briefs. Without it, each analysis is saved with an error status.                                                                                    |
+| `OPENROUTER_MODEL`   | `nvidia/nemotron-3-super-120b-a12b:free` | Primary OpenRouter model. Other free models are used as fallbacks.                                                                                                                     |
+| `PORT`               | `3001`                                   | Backend listen port                                                                                                                                                                    |
+| `STATIC_DIR`         | `frontend/dist`                          | Built frontend to serve. Resolved from the repo layout, not the process working directory. Skipped when that folder has no `index.html`, which is the case during local `npm run dev`. |
 
 If you change the backend port, update the proxy target in `frontend/vite.config.ts` as well.
 

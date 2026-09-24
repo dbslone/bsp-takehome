@@ -1,10 +1,13 @@
 import path from 'node:path'
 import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer from 'multer'
+import { startAnalysis } from '../analysis/run.js'
 import {
   createBrief,
+  getAnalysisState,
   getBrief,
   getBriefFile,
+  hasPendingAnalysis,
   listBriefs,
   removeBrief,
   updateBrief,
@@ -52,7 +55,30 @@ briefsRouter.post('/', receiveUpload, async (req, res) => {
     },
     incomingFile(req.file),
   )
+  await queueAnalysis(brief.id)
   res.status(201).json(brief)
+})
+
+briefsRouter.get('/:id/analysis', async (req, res) => {
+  const brief = await getBrief(req.params.id)
+  if (!brief) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  res.json(await getAnalysisState(brief.id))
+})
+
+briefsRouter.post('/:id/analysis', async (req, res) => {
+  const brief = await getBrief(req.params.id)
+  if (!brief) {
+    res.status(404).json({ error: 'Not found' })
+    return
+  }
+  if (await hasPendingAnalysis(brief.id)) {
+    res.status(409).json({ error: 'An analysis is already in progress' })
+    return
+  }
+  res.status(202).json(await startAnalysis(brief.id))
 })
 
 briefsRouter.get('/:id/file', async (req, res) => {
@@ -112,6 +138,9 @@ briefsRouter.patch('/:id', receiveUpload, async (req: Request<{ id: string }>, r
     res.status(404).json({ error: 'Not found' })
     return
   }
+  if (Object.keys(patch).length > 0) {
+    await queueAnalysis(brief.id)
+  }
   res.json(brief)
 })
 
@@ -123,6 +152,14 @@ briefsRouter.delete('/:id', async (req, res) => {
   }
   res.status(204).end()
 })
+
+async function queueAnalysis(briefId: string): Promise<void> {
+  try {
+    await startAnalysis(briefId)
+  } catch (err: unknown) {
+    console.error(`Could not start analysis for brief ${briefId}`, err)
+  }
+}
 
 function receiveUpload(req: Request, res: Response, next: NextFunction): void {
   upload.single('file')(req, res, (err: unknown) => {
