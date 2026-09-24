@@ -283,6 +283,7 @@ Lint, format, the pre-commit hook, and GitHub Actions (lint, Prettier, `npm test
 - **Failure runbooks.** One runbook for each failure: database down, an S3 upload or download error, OpenRouter timeout or rate limit, an analysis left pending, and a model response that fails validation.
 - **Auth.** Login in front of the briefs. A second app instance can read files from object storage. It cannot cancel a model call running in another process, because that abort map is in memory.
 - **Reviewed prompts.** The prompt and the Zod schema stay in the repo and are reviewed like code. A change to validation, error copy, or the prompt needs a test, and CI must pass typecheck, lint, and tests before merge. A model response that fails the schema is never stored as success and never rendered. Cursor rules in `.cursor/rules` are the local version of that bar. They are not a substitute for CI.
+- **Checkable action items.** Each analysis step is broken into action items the team can check off. Checking an item off stores that progress and runs the analysis again, so the next result reflects the work already done. The new run uses the same schema check as any other analysis.
 
 ## Where AI coding tools helped
 
