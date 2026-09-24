@@ -5,6 +5,30 @@ A full-stack TypeScript app. The running app is at [https://bsp-takehome.onrende
 - **backend/** - Node.js + Express API
 - **frontend/** - React app built with Vite
 
+**Contents**
+
+- [Prerequisites](#prerequisites)
+- [Local database](#local-database)
+- [Getting started](#getting-started)
+- [Project structure](#project-structure)
+- [Routing](#routing)
+- [UI](#ui)
+- [Scripts](#scripts)
+- [Linting and formatting](#linting-and-formatting)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+- [Architecture](#architecture)
+  - [How a brief moves through the app](#how-a-brief-moves-through-the-app)
+  - [Data schema](#data-schema)
+  - [API](#api)
+  - [Adding a brief field](#adding-a-brief-field)
+- [Key tradeoffs](#key-tradeoffs)
+- [What this does not include](#what-this-does-not-include)
+- [What I would do next with more time](#what-i-would-do-next-with-more-time)
+- [What I would add for production](#what-i-would-add-for-production)
+- [Where AI coding tools helped](#where-ai-coding-tools-helped)
+- [Docs](#docs)
+
 ## Prerequisites
 
 - Node.js 22 or newer (includes npm)
@@ -257,3 +281,8 @@ What was checked by hand, in tests, or in CI rather than taken from generated co
 - `npm test` covers that schema, field limits, and the analysis helpers. `.github/workflows/ci.yml` runs lint with warnings denied, Prettier, those tests, and `npm run build`.
 
 The prompt asks for themes, audience, strengths, risks, and next actions that are specific to the brief. A generic summary would still pass the schema, so the useful part is the prompt and the way the UI presents severity and priority, not the validator alone.
+
+## Docs
+
+- [Edge cases](docs/edge-cases.md). Uploads, HTTP errors, analysis failures, and what each screen shows when something goes wrong.
+- [LLM provider comparison](docs/llm-provider-comparison.md). Why the demo uses OpenRouter free models instead of Anthropic or OpenAI.
