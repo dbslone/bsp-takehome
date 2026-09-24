@@ -294,10 +294,8 @@ What was checked by hand, in tests, or in CI rather than taken from generated co
 - Timeouts, invalid JSON, and schema failures are saved on the analysis row and shown in the panel. The cases are listed in [`docs/edge-cases.md`](docs/edge-cases.md).
 - `npm test` covers that schema, field limits, and the analysis helpers. `.github/workflows/ci.yml` runs lint with warnings denied, Prettier, those tests, and `npm run build`.
 
-The prompt asks for themes, audience, strengths, risks, and next actions that are specific to the brief. A generic summary would still pass the schema, so the useful part is the prompt and the way the UI presents severity and priority, not the validator alone.
-
 ## Docs
 
 - [Edge cases](docs/edge-cases.md). Uploads, HTTP errors, analysis failures, and what each screen shows when something goes wrong.
 - [LLM provider comparison](docs/llm-provider-comparison.md). Why the demo uses OpenRouter free models instead of Anthropic or OpenAI.
-- [Choosing a model](docs/model-selection.md). How to bake off free OpenRouter models and pick the default.
+- [Choosing a model](docs/model-selection.md). Process for how the model was chosen
