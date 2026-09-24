@@ -11,7 +11,7 @@ export type Brief = {
   contentType: string
   targetAudience: string
   notes: string
-  file: BriefFile
+  file: BriefFile | null
   createdAt: string
   updatedAt: string
 }

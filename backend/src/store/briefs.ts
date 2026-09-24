@@ -12,9 +12,7 @@ function asBrief(row: unknown): Brief {
   const value = asRecord(row, 'brief row')
   const createdAt = timestamp(value.created_at)
   const updatedAt = timestamp(value.updated_at)
-  if (!createdAt || !updatedAt || typeof value.file_size !== 'number') {
-    throw new Error('Invalid brief row')
-  }
+  if (!createdAt || !updatedAt) throw new Error('Invalid brief row')
 
   return {
     id: requiredString(value.id, 'brief row'),
@@ -23,13 +21,19 @@ function asBrief(row: unknown): Brief {
     contentType: requiredString(value.content_type, 'brief row'),
     targetAudience: requiredString(value.target_audience, 'brief row'),
     notes: requiredString(value.notes, 'brief row'),
-    file: {
-      originalName: requiredString(value.file_name, 'brief row'),
-      mimeType: requiredString(value.file_mime, 'brief row'),
-      size: value.file_size,
-    },
+    file: briefFile(value),
     createdAt,
     updatedAt,
+  }
+}
+
+function briefFile(value: Record<string, unknown>): BriefFile | null {
+  if (value.file_name === null) return null
+  if (typeof value.file_size !== 'number') throw new Error('Invalid brief row')
+  return {
+    originalName: requiredString(value.file_name, 'brief row'),
+    mimeType: requiredString(value.file_mime, 'brief row'),
+    size: value.file_size,
   }
 }
 
@@ -89,10 +93,10 @@ export async function getBriefFile(id: string): Promise<BriefUpload | null> {
   }
 }
 
-export async function createBrief(text: BriefText, file: IncomingFile): Promise<Brief> {
+export async function createBrief(text: BriefText, file: IncomingFile | null): Promise<Brief> {
   const id = randomUUID()
   const now = new Date().toISOString()
-  const stored = storedFile(file)
+  const stored = file ? storedFile(file) : null
   const result = await getPool().query(
     `INSERT INTO briefs (
       id, title, description, content_type, target_audience, notes,
@@ -106,10 +110,10 @@ export async function createBrief(text: BriefText, file: IncomingFile): Promise<
       text.contentType,
       text.targetAudience,
       text.notes,
-      stored.originalName,
-      stored.mimeType,
-      stored.size,
-      file.buffer,
+      stored?.originalName ?? null,
+      stored?.mimeType ?? null,
+      stored?.size ?? null,
+      file?.buffer ?? null,
       now,
       now,
     ],

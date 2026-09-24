@@ -9,17 +9,25 @@ import {
   getBriefFile,
   replacePendingAnalysis,
   type Analysis,
+  type Brief,
   type BriefText,
+  type BriefUpload,
 } from '../store/index.js'
 import { fileContent, type FileContent } from './extract.js'
 import { beginBriefRun, cancelBrief, endBriefRun } from './inflight.js'
-import { callOpenRouter, OpenRouterError, type Completion, type Message } from './openrouter.js'
+import {
+  callOpenRouter,
+  OpenRouterError,
+  type Completion,
+  type ContentPart,
+  type Plugin,
+} from './openrouter.js'
 import { ModelResponse, modelResponseJsonSchema, type BriefAnalysis } from './schema.js'
 
 const SYSTEM_PROMPT = `You are a senior creative strategist reviewing a creative brief for a production team.
-Read the brief form fields and the attached file, then respond with a single JSON object that matches the provided schema exactly. Do not include any text outside the JSON.
+Read the brief form fields and any attached file, then respond with a single JSON object that matches the provided schema exactly. Do not include any text outside the JSON.
 
-- extracted: title, description, contentType, targetAudience, and notes taken from the attached file. Form lines that say "(not provided)" are blank. Use an empty string when the file does not state a value. Title and content type must each be 255 characters or fewer.
+- extracted: title, description, contentType, targetAudience, and notes taken from the attached file. Form lines that say "(not provided)" are blank. Use an empty string when the file does not state a value. If no file is attached, leave every extracted field as an empty string. Title and content type must each be 255 characters or fewer.
 - themes: summarize the brief, list its primary themes, classify the content type, and describe the tone.
 - audience: quote the stated audience (or null if none), explain who the audience really is, and list useful segments.
 - strengths: what the brief does well and the creative opportunities it opens up.
@@ -78,47 +86,61 @@ type Outcome =
 async function analyze(briefId: string, signal: AbortSignal): Promise<Outcome> {
   if (signal.aborted) return { ok: false, error: 'Analysis was cancelled' }
   const [brief, file] = await Promise.all([getBrief(briefId), getBriefFile(briefId)])
-  if (!brief || !file) {
-    return { ok: false, error: 'The brief or its file no longer exists' }
-  }
+  if (!brief) return { ok: false, error: 'The brief or its file no longer exists' }
+  if (!file) return reviewForm(brief, signal)
+  return reviewFile(brief, file, signal)
+}
 
+async function reviewForm(brief: Brief, signal: AbortSignal): Promise<Outcome> {
+  const text = [
+    `Brief form fields:\n${formFields(brief)}`,
+    'No file is attached. Leave every extracted field as an empty string.',
+  ].join('\n\n')
+  return requestModel([{ type: 'text', text }], [], signal)
+}
+
+async function reviewFile(brief: Brief, file: BriefUpload, signal: AbortSignal): Promise<Outcome> {
   let content: FileContent
   try {
     content = await fileContent(file)
   } catch {
     return { ok: false, error: 'Could not read text from the uploaded file' }
   }
+  const parts: ContentPart[] = [
+    { type: 'text', text: `Brief form fields:\n${formFields(brief)}` },
+    ...content.parts,
+  ]
+  return requestModel(parts, content.plugins, signal)
+}
 
-  const fields = [
+function formFields(brief: BriefText): string {
+  return [
     `Title: ${brief.title || '(not provided)'}`,
     `Description: ${brief.description || '(not provided)'}`,
     `Content type: ${brief.contentType || '(not provided)'}`,
     `Target audience: ${brief.targetAudience || '(not provided)'}`,
     `Notes: ${brief.notes || '(not provided)'}`,
   ].join('\n')
+}
 
-  const messages: Message[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: [{ type: 'text', text: `Brief form fields:\n${fields}` }, ...content.parts],
-    },
-  ]
-
+async function requestModel(
+  parts: ContentPart[],
+  plugins: Plugin[],
+  signal: AbortSignal,
+): Promise<Outcome> {
   let completion: Completion
   try {
-    completion = await callOpenRouter(messages, {
-      plugins: content.plugins,
-      schema: modelResponseJsonSchema,
-      signal,
-    })
+    completion = await callOpenRouter(
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: parts },
+      ],
+      { plugins, schema: modelResponseJsonSchema, signal },
+    )
   } catch (err: unknown) {
-    if (err instanceof OpenRouterError) {
-      return { ok: false, error: err.message, model: err.model }
-    }
+    if (err instanceof OpenRouterError) return { ok: false, error: err.message, model: err.model }
     throw err
   }
-
   return readModelResponse(completion)
 }
 

@@ -14,7 +14,7 @@ import { formatDateTime } from '../../format'
 import type { Brief } from '../../types'
 
 function BriefHeader({ brief }: { brief: Brief }) {
-  const download = useBriefDownload(brief.id, brief.file.originalName)
+  const download = useBriefDownload(brief.id, brief.file?.originalName ?? '')
   return (
     <Stack spacing={1.5}>
       <Button
@@ -37,17 +37,19 @@ function BriefHeader({ brief }: { brief: Brief }) {
           </Typography>
           <HeaderMeta brief={brief} />
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<DownloadOutlined />}
-          loading={download.downloading}
-          onClick={() => void download.download()}
-          sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'auto' } }}
-        >
-          Download file
-        </Button>
+        {brief.file && (
+          <Button
+            variant="contained"
+            startIcon={<DownloadOutlined />}
+            loading={download.downloading}
+            onClick={() => void download.download()}
+            sx={{ flexShrink: 0, alignSelf: { xs: 'flex-start', sm: 'auto' } }}
+          >
+            Download file
+          </Button>
+        )}
       </Stack>
-      {download.error && <Alert severity="error">{download.error}</Alert>}
+      {brief.file && download.error && <Alert severity="error">{download.error}</Alert>}
     </Stack>
   )
 }

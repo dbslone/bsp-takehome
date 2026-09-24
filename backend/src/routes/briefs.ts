@@ -2,7 +2,12 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer from 'multer'
 import { cancelBrief } from '../analysis/inflight.js'
 import { restartAnalysis, startAnalysis } from '../analysis/run.js'
-import { briefContentError, briefPatchFromBody, briefTextFromBody } from '../briefFields.js'
+import {
+  briefContentError,
+  briefPatchFromBody,
+  briefPresenceError,
+  briefTextFromBody,
+} from '../briefFields.js'
 import {
   AnalysisAlreadyRunning,
   BriefNotFound,
@@ -32,22 +37,25 @@ briefsRouter.get('/', async (_req, res) => {
 })
 
 briefsRouter.post('/', receiveUpload, async (req, res) => {
-  if (!req.file) {
-    res.status(400).json({ error: 'A file is required' })
-    return
-  }
-  const uploadError = fileError(req.file)
-  if (uploadError) {
-    res.status(400).json({ error: uploadError })
-    return
+  if (req.file) {
+    const uploadError = fileError(req.file)
+    if (uploadError) {
+      res.status(400).json({ error: uploadError })
+      return
+    }
   }
   const parsed = briefTextFromBody(readBody(req.body))
   if (!parsed.ok) {
     res.status(400).json({ error: parsed.error })
     return
   }
+  const presenceError = briefPresenceError(parsed.text, Boolean(req.file))
+  if (presenceError) {
+    res.status(400).json({ error: presenceError })
+    return
+  }
 
-  const brief = await createBrief(parsed.text, incomingFile(req.file))
+  const brief = await createBrief(parsed.text, req.file ? incomingFile(req.file) : null)
   sendBrief(res, 201, brief, await queueAnalysis(brief.id))
 })
 

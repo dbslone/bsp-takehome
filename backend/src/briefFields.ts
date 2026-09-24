@@ -49,6 +49,14 @@ export function briefPatchFromBody(body: Record<string, unknown>): BriefPatchRes
   return { ok: true, patch }
 }
 
+export function briefPresenceError(text: BriefText, hasFile: boolean): string | null {
+  for (const field of FIELDS) {
+    if (!isRequired(field.key, hasFile) || text[field.key].trim()) continue
+    return `${field.label} is required`
+  }
+  return null
+}
+
 export function briefUploadError(originalName: string): string | null {
   const extension = path.extname(originalName).toLowerCase()
   if (ALLOWED_EXTENSIONS.has(extension)) return null
@@ -68,6 +76,12 @@ export function clipBriefText(text: BriefText): BriefText {
     clipped[field.key] = limitText(text[field.key], field.max)
   }
   return clipped
+}
+
+function isRequired(key: FieldKey, hasFile: boolean): boolean {
+  if (key === 'title') return true
+  if (hasFile || key === 'notes') return false
+  return true
 }
 
 function emptyBriefText(): BriefText {

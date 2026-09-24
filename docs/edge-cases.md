@@ -4,11 +4,16 @@ How the app behaves when a request, upload, analysis, or screen does not follow 
 
 ## Uploads and form fields
 
-Create and update both require the file checks below. Text fields are optional. Blank title, description, content type, audience, and notes are allowed and can be filled from the file after analysis.
+Create accepts a brief with or without a file. Title is always required. With a file, description, content type, audience, and notes may be blank and can be filled from the file after analysis. Without a file, description, content type, and target audience are required. Notes stay optional. Update still allows a missing replacement file and does not apply these presence rules. When a file is sent, the checks below still apply.
 
 | Case                                             | Response                                               |
 | ------------------------------------------------ | ------------------------------------------------------ |
-| No file on create                                | `400` `A file is required`                             |
+| Create with a blank title                        | `400` `Title is required`                              |
+| No file, and description is blank                | `400` `Description is required`                        |
+| No file, and content type is blank               | `400` `Content type is required`                       |
+| No file, and target audience is blank            | `400` `Target audience is required`                    |
+| No file, notes blank, other fields set           | `201`                                                  |
+| File present, title set, other fields blank      | `201`                                                  |
 | Extension other than `.pdf`, `.docx`, or `.txt`  | `400` `Upload must be a PDF, DOCX, or plain text file` |
 | Empty file                                       | `400` `File is empty`                                  |
 | `.pdf` whose first 1 KB does not contain `%PDF-` | `400` `File content is not a PDF`                      |
@@ -65,7 +70,8 @@ Two app processes can start at once. Migrations take a Postgres advisory lock, a
 | Empty model content                                    | Analysis `error`: `The model returned an empty response`, or the upstream message          |
 | Model text is not JSON                                 | Analysis `error`: `The model did not return valid JSON`. Fenced JSON is unwrapped first.   |
 | JSON does not match the schema                         | Analysis `error` listing up to three field problems                                        |
-| Brief or file disappears mid-run                       | Analysis `error`: `The brief or its file no longer exists`                                 |
+| Brief disappears mid-run                               | Analysis `error`: `The brief or its file no longer exists`                                 |
+| Brief has no file                                      | Analysis reviews the form text and leaves extracted fields empty                           |
 | Any other throw                                        | Analysis `error`: `Unexpected error while analyzing the brief`                             |
 
 Completion and failure updates only apply while the row is still `pending`. A superseded or deleted run cannot overwrite a newer result. If saving the failure itself fails, the server logs it and leaves the row pending until the next restart.
@@ -76,7 +82,7 @@ Deleting a brief aborts its in-flight model call, then deletes the brief. Analys
 
 ### Filling blank fields
 
-A successful analysis writes extracted title, description, content type, audience, and notes only into columns that are still blank at update time. A value the user already saved is left alone, including when they edit the brief while the model call is in flight. Extracted text is trimmed, then clipped to the form's length limits, before it is written. Target audience has no length limit. `updated_at` changes only when a blank field is actually filled.
+A successful analysis writes extracted title, description, content type, audience, and notes only into columns that are still blank at update time. A value the user already saved is left alone, including when they edit the brief while the model call is in flight. Extracted text is trimmed, then clipped to the form's length limits, before it is written. Target audience has no length limit. `updated_at` changes only when a blank field is actually filled. A brief with no file asks the model to leave extracted fields empty, so saved form values stay as entered.
 
 ## Screens
 

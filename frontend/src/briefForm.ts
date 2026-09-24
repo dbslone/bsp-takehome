@@ -35,9 +35,19 @@ export const EMPTY_BRIEF_FORM: BriefFormValues = {
   notes: '',
 }
 
-export function validateBriefForm(values: BriefFormValues): BriefFormErrors {
+export function isBriefFieldRequired(field: BriefFormField, hasFile: boolean): boolean {
+  if (field === 'title') return true
+  if (hasFile || field === 'notes') return false
+  return true
+}
+
+export function validateBriefForm(values: BriefFormValues, hasFile: boolean): BriefFormErrors {
   const errors: BriefFormErrors = {}
   for (const field of FIELDS) {
+    if (isBriefFieldRequired(field.key, hasFile) && values[field.key].trim().length === 0) {
+      errors[field.key] = `${field.label} is required`
+      continue
+    }
     const message = lengthError(field.label, values[field.key], field.max)
     if (message) errors[field.key] = message
   }
@@ -49,8 +59,11 @@ export function charactersRemaining(value: string, max: number): string {
   return `${remaining} characters remaining`
 }
 
-export function briefTitle(brief: { title: string; file: { originalName: string } }): string {
-  return brief.title.trim() || brief.file.originalName
+export function briefTitle(brief: {
+  title: string
+  file: { originalName: string } | null
+}): string {
+  return brief.title.trim() || brief.file?.originalName || 'Untitled'
 }
 
 function lengthError(label: string, value: string, max?: number): string | undefined {

@@ -128,7 +128,7 @@ function HomePage() {
                     <TableCell>{briefTitle(brief)}</TableCell>
                     <TableCell>{textOrDash(brief.contentType)}</TableCell>
                     <TableCell>{textOrDash(brief.targetAudience)}</TableCell>
-                    <TableCell>{brief.file.originalName}</TableCell>
+                    <TableCell>{brief.file?.originalName ?? '—'}</TableCell>
                     <TableCell>{formatDate(brief.createdAt)}</TableCell>
                   </TableRow>
                 ))}
@@ -157,8 +157,13 @@ function asBriefList(value: unknown): Brief[] | null {
 function isBrief(value: unknown): value is Brief {
   if (typeof value !== 'object' || value === null) return false
   if (!('id' in value) || typeof value.id !== 'string') return false
-  if (!('file' in value) || typeof value.file !== 'object' || value.file === null) return false
-  return 'originalName' in value.file && typeof value.file.originalName === 'string'
+  if (!('file' in value)) return false
+  return value.file === null || isBriefFile(value.file)
+}
+
+function isBriefFile(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  return 'originalName' in value && typeof value.originalName === 'string'
 }
 
 function textOrDash(value: string): string {

@@ -247,7 +247,7 @@ A new analysis section (rather than a brief field) is a change to `BriefAnalysis
 
 ## Key tradeoffs
 
-- **A file is required, and the text fields are optional.** Creative briefs usually arrive as a document. The model fills blank title, description, content type, audience, and notes from that file, and it does not overwrite a value the user already saved. Someone with only a sentence and no file cannot submit.
+- **A file is optional, and the title is required.** Creative briefs usually arrive as a document. With a file, the model fills blank description, content type, audience, and notes, and it does not overwrite a value the user already saved. Without a file, description, content type, and audience are required, notes stay optional, and analysis reviews the form text only.
 - **Free OpenRouter models, not Anthropic or OpenAI.** Those two APIs are not dependably free. The comparison is in [`docs/llm-provider-comparison.md`](docs/llm-provider-comparison.md). The default model is `nvidia/nemotron-3-super-120b-a12b:free`, with other free models as fallbacks, overridable with `OPENROUTER_MODEL`. Output quality varies, and the free tier is rate limited. The schema is checked in our process because those models do not guarantee JSON.
 - **The HTTP request does not wait for the model.** Create and update return as soon as the pending row exists. The page polls. A 90 second OpenRouter timeout, a bad JSON body, or a schema mismatch becomes an analysis error the user can read. There is no automatic retry. A wrong shape is a failed analysis, not a second guess.
 - **One process and one database.** The API and the built frontend ship in the same image, and uploaded files live in Postgres. That is enough for a demo. It is a poor fit for large files or more than one app instance serving the same uploads from disk, which is why the bytes are in the database rather than on local disk.
@@ -265,7 +265,6 @@ A new analysis section (rather than a brief field) is a change to `BriefAnalysis
 
 ### With more time
 
-- **Optional file.** Save a brief from the form alone, so a producer can start from a logline.
 - **Sample briefs.** A few briefs of different quality, so risks and missing information are obvious in a demo.
 - **Comments.** The collaboration feature this team would ask for first.
 - **Two model speeds.** A short brief goes to the fast free model, a long one to a stronger paid model, with the same schema either way.

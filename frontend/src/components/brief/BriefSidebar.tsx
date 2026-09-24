@@ -16,12 +16,14 @@ function BriefSidebar({ brief }: { brief: Brief }) {
         <DetailField label="Description" value={brief.description} />
         <DetailField label="Target audience" value={brief.targetAudience} />
         <DetailField label="Notes" value={brief.notes} />
-        <Stack spacing={1}>
-          <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-            Attachment
-          </Typography>
-          <FileCard briefId={brief.id} file={brief.file} />
-        </Stack>
+        {brief.file && (
+          <Stack spacing={1}>
+            <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+              Attachment
+            </Typography>
+            <FileCard briefId={brief.id} file={brief.file} />
+          </Stack>
+        )}
       </Stack>
     </Paper>
   )

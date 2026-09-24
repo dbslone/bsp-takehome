@@ -3,7 +3,13 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { briefContentError, briefTextFromBody, briefUploadError } from './briefFields.js'
+import {
+  briefContentError,
+  briefPresenceError,
+  briefTextFromBody,
+  briefUploadError,
+} from './briefFields.js'
+import type { BriefText } from './store/types.js'
 
 const examplesDir = fileURLToPath(new URL('../../example-briefs/', import.meta.url))
 
@@ -51,6 +57,43 @@ describe('brief file content', () => {
 
   it('accepts a docx zip header', () => {
     assert.equal(briefContentError('notes.docx', Buffer.from([0x50, 0x4b, 0x03, 0x04])), null)
+  })
+})
+
+describe('brief presence', () => {
+  const filled: BriefText = {
+    title: 'Launch',
+    description: 'A film',
+    contentType: 'Video',
+    targetAudience: 'Adults',
+    notes: '',
+  }
+
+  it('requires a title when a file is attached', () => {
+    assert.equal(briefPresenceError({ ...filled, title: '  ' }, true), 'Title is required')
+  })
+
+  it('accepts a title and blank notes when a file is attached', () => {
+    assert.equal(briefPresenceError({ ...filled, description: '', contentType: '' }, true), null)
+  })
+
+  it('requires description, content type, and audience without a file', () => {
+    assert.equal(
+      briefPresenceError({ ...filled, description: '' }, false),
+      'Description is required',
+    )
+    assert.equal(
+      briefPresenceError({ ...filled, contentType: '' }, false),
+      'Content type is required',
+    )
+    assert.equal(
+      briefPresenceError({ ...filled, targetAudience: '' }, false),
+      'Target audience is required',
+    )
+  })
+
+  it('allows blank notes without a file', () => {
+    assert.equal(briefPresenceError(filled, false), null)
   })
 })
 

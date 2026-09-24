@@ -2,6 +2,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import {
   charactersRemaining,
+  isBriefFieldRequired,
   LONG_FIELD_MAX,
   SHORT_FIELD_MAX,
   type BriefFormErrors,
@@ -13,15 +14,17 @@ type BriefFormFieldsProps = {
   values: BriefFormValues
   errors: BriefFormErrors
   disabled: boolean
+  hasFile: boolean
   onChange: (field: BriefFormField, value: string) => void
 }
 
-function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFieldsProps) {
+function BriefFormFields({ values, errors, disabled, hasFile, onChange }: BriefFormFieldsProps) {
   return (
     <>
       <ShortField
         field="title"
         label="Title"
+        required
         values={values}
         errors={errors}
         disabled={disabled}
@@ -30,6 +33,7 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
       <LongField
         field="description"
         label="Description"
+        required={isBriefFieldRequired('description', hasFile)}
         values={values}
         errors={errors}
         disabled={disabled}
@@ -38,6 +42,7 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
       <ShortField
         field="contentType"
         label="Content type"
+        required={isBriefFieldRequired('contentType', hasFile)}
         values={values}
         errors={errors}
         disabled={disabled}
@@ -46,6 +51,7 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
       <OpenField
         field="targetAudience"
         label="Target audience"
+        required={isBriefFieldRequired('targetAudience', hasFile)}
         values={values}
         errors={errors}
         disabled={disabled}
@@ -54,13 +60,16 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
       <LongField
         field="notes"
         label="Notes"
+        required={false}
         values={values}
         errors={errors}
         disabled={disabled}
         onChange={onChange}
       />
       <Typography variant="body2" color="text.secondary">
-        Blank fields are filled from the file after analysis.
+        {hasFile
+          ? 'Blank fields other than title are filled from the file after analysis.'
+          : 'Notes are optional.'}
       </Typography>
     </>
   )
@@ -69,9 +78,10 @@ function BriefFormFields({ values, errors, disabled, onChange }: BriefFormFields
 type FieldProps = BriefFormFieldsProps & {
   field: BriefFormField
   label: string
+  required: boolean
 }
 
-function ShortField({ field, label, values, errors, disabled, onChange }: FieldProps) {
+function ShortField({ field, label, required, values, errors, disabled, onChange }: FieldProps) {
   const error = errors[field]
   return (
     <TextField
@@ -79,6 +89,7 @@ function ShortField({ field, label, values, errors, disabled, onChange }: FieldP
       value={values[field]}
       onChange={(event) => onChange(field, event.target.value)}
       disabled={disabled}
+      required={required}
       error={Boolean(error)}
       helperText={error ?? charactersRemaining(values[field], SHORT_FIELD_MAX)}
       fullWidth
@@ -87,7 +98,7 @@ function ShortField({ field, label, values, errors, disabled, onChange }: FieldP
   )
 }
 
-function LongField({ field, label, values, errors, disabled, onChange }: FieldProps) {
+function LongField({ field, label, required, values, errors, disabled, onChange }: FieldProps) {
   const error = errors[field]
   return (
     <TextField
@@ -95,6 +106,7 @@ function LongField({ field, label, values, errors, disabled, onChange }: FieldPr
       value={values[field]}
       onChange={(event) => onChange(field, event.target.value)}
       disabled={disabled}
+      required={required}
       error={Boolean(error)}
       helperText={error}
       multiline
@@ -105,7 +117,7 @@ function LongField({ field, label, values, errors, disabled, onChange }: FieldPr
   )
 }
 
-function OpenField({ field, label, values, errors, disabled, onChange }: FieldProps) {
+function OpenField({ field, label, required, values, errors, disabled, onChange }: FieldProps) {
   const error = errors[field]
   return (
     <TextField
@@ -113,6 +125,7 @@ function OpenField({ field, label, values, errors, disabled, onChange }: FieldPr
       value={values[field]}
       onChange={(event) => onChange(field, event.target.value)}
       disabled={disabled}
+      required={required}
       error={Boolean(error)}
       helperText={error}
       fullWidth
