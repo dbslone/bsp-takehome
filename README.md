@@ -23,9 +23,10 @@ A full-stack TypeScript app. The running app is at [https://bsp-takehome.onrende
   - [API](#api)
   - [Adding a brief field](#adding-a-brief-field)
 - [Key tradeoffs](#key-tradeoffs)
-- [What this does not include](#what-this-does-not-include)
-- [What I would do next with more time](#what-i-would-do-next-with-more-time)
 - [What I would add for production](#what-i-would-add-for-production)
+  - [Not in this demo](#not-in-this-demo)
+  - [With more time](#with-more-time)
+  - [To run it in production](#to-run-it-in-production)
 - [Where AI coding tools helped](#where-ai-coding-tools-helped)
 - [Docs](#docs)
 
@@ -242,33 +243,35 @@ A new analysis section (rather than a brief field) is a change to `BriefAnalysis
 - **The HTTP request does not wait for the model.** Create and update return as soon as the pending row exists. The page polls. A 90 second OpenRouter timeout, a bad JSON body, or a schema mismatch becomes an analysis error the user can read. There is no automatic retry. A wrong shape is a failed analysis, not a second guess.
 - **One process and one database.** The API and the built frontend ship in the same image, and uploaded files live in Postgres. That is enough for a demo. It is a poor fit for large files or more than one app instance serving the same uploads from disk, which is why the bytes are in the database rather than on local disk.
 
-## What this does not include
-
-- Accounts, login, or permissions. Anyone who can open the app can read and edit every brief.
-- Live multi-user review. Two people can use the app at once, but there is no shared cursor, comment thread, or push update.
-- A cheaper-versus-richer model route. Every brief uses the same OpenRouter model list.
-- Image or asset URL metadata. The upload path accepts PDF, DOCX, and plain text only.
-- Error tracking beyond server logs and the analysis `error` column. `GET /api/health` is the observability that is actually built.
-- Paid models, a retry when validation fails, and object storage for files.
-
-## What I would do next with more time
-
-- Let a brief be saved from the form alone, with the file optional, so a producer can start from a logline.
-- Ship a few sample briefs of different quality so the risks and missing-information sections are obvious in a demo.
-- Add comments on a brief, which is the collaboration feature this team would ask for first.
-- Send a short or vague brief to the fast free model and a long one to a stronger paid model, using the same schema either way.
-- Accept an image or a link to a frame, board, or cut as part of the brief.
-
 ## What I would add for production
 
-The repo already runs oxlint with warnings denied, Prettier, a pre-commit hook, and GitHub Actions that lint, check formatting, run `npm test`, and `npm run build` (that build typechecks both apps). Beyond that:
+### Not in this demo
 
-- Integration tests against Postgres for create, the one-pending-analysis rule, and "a superseded run cannot overwrite a newer result." The current tests cover parsing, validation, and field limits without a database.
-- A small set of fixture briefs, reviewed by a person, so a prompt or schema change is judged on whether the team could act on the output, not only on whether the JSON parses.
-- Secret scanning and dependency review on pull requests. Production secrets stay in the host's environment, as they do here.
-- Structured logs, an error tracker, and rate limits on create and on the model call. The health check is not a substitute for those.
-- Auth in front of the briefs, and file bytes in object storage once uploads are larger than a demo. A second app instance can already read files, because the bytes are in Postgres. It cannot cancel a model call running in another process: that abort map is in memory.
-- For AI-assisted changes: the prompt and the Zod schema stay in the repo and are reviewed like code. A change to validation, error copy, or the prompt needs a test, and CI must pass typecheck, lint, and tests before merge. A model response that fails the schema is never stored as success and never rendered. Cursor rules in `.cursor/rules` are the local version of that bar; they are not a substitute for CI.
+- **Accounts.** Anyone who can open the app can read and edit every brief.
+- **Live review.** Two people can use the app at once. There is no shared cursor, comment thread, or push update.
+- **Model routing.** Every brief uses the same OpenRouter model list.
+- **Images.** Uploads are PDF, DOCX, and plain text only.
+- **Error tracking.** Failures show up in server logs and the analysis `error` column. `GET /api/health` is the check that is built.
+- **Paid models, validation retries, and object storage.**
+
+### With more time
+
+- **Optional file.** Save a brief from the form alone, so a producer can start from a logline.
+- **Sample briefs.** A few briefs of different quality, so risks and missing information are obvious in a demo.
+- **Comments.** The collaboration feature this team would ask for first.
+- **Two model speeds.** A short brief goes to the fast free model, a long one to a stronger paid model, with the same schema either way.
+- **Frames.** Accept an image or a link to a frame, board, or cut.
+
+### To run it in production
+
+Lint, format, the pre-commit hook, and GitHub Actions (lint, Prettier, `npm test`, `npm run build`) are already in the repo. Still to add:
+
+- **Database tests.** Integration tests for create, the one-pending-analysis rule, and a superseded run that must not overwrite a newer result. Current tests cover parsing, validation, and field limits without Postgres.
+- **Reviewed fixtures.** A small set of briefs a person has checked, so a prompt or schema change is judged on whether the team could act on the output.
+- **Pull request checks.** Secret scanning and dependency review. Production secrets stay in the host's environment.
+- **Operations.** Structured logs, an error tracker, and rate limits on create and on the model call.
+- **Auth and file storage.** Login in front of the briefs, and file bytes in object storage once uploads outgrow a demo. A second app instance can read files from Postgres. It cannot cancel a model call running in another process, because that abort map is in memory.
+- **Reviewed prompts.** The prompt and the Zod schema stay in the repo and are reviewed like code. A change to validation, error copy, or the prompt needs a test, and CI must pass typecheck, lint, and tests before merge. A model response that fails the schema is never stored as success and never rendered. Cursor rules in `.cursor/rules` are the local version of that bar. They are not a substitute for CI.
 
 ## Where AI coding tools helped
 
