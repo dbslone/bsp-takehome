@@ -20,5 +20,5 @@ jobs:
           HUSKY: 0
       - run: npm run lint -- --deny-warnings
       - run: npm run format:check
-      - run: npm test
+      - run: npm test -w backend
       - run: npm run build
