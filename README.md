@@ -28,7 +28,7 @@ npm run dev
 | Frontend | http://localhost:5173 |
 | Backend  | http://localhost:3001 |
 
-In development, the Vite dev server proxies any request starting with `/api` to the backend, so the frontend can use relative URLs. HTTP requests go through the shared axios instance in `frontend/src/api.ts` (base URL `/api`), e.g. `api.get('/health')`. The home page (`frontend/src/pages/HomePage.tsx`) calls `GET /api/health` and shows the backend status.
+In development, the Vite dev server proxies any request starting with `/api` to the backend, so the frontend can use relative URLs. HTTP requests go through the shared axios instance in `frontend/src/api.ts` (base URL `/api`), e.g. `api.get('/health')`. The header shows that health check as a status button. The home page lists briefs from `GET /api/briefs`.
 
 ## Project structure
 
@@ -45,12 +45,16 @@ In development, the Vite dev server proxies any request starting with `/api` to 
         ├── main.tsx        # theme provider + router
         ├── router.tsx      # route definitions
         ├── api.ts          # shared axios instance
+        ├── types.ts        # brief response types
         ├── theme.ts        # MUI theme (light/dark color schemes)
         ├── components/
-        │   ├── Layout.tsx           # shared app bar/nav + <Outlet />
-        │   └── ColorModeToggle.tsx  # light/dark mode switch
+        │   ├── Layout.tsx              # shared app bar/nav + <Outlet />
+        │   ├── ColorModeToggle.tsx     # light/dark mode switch
+        │   ├── BackendStatusButton.tsx # header backend health status
+        │   └── AddBriefDialog.tsx      # create-brief modal
         └── pages/
-            ├── HomePage.tsx
+            ├── HomePage.tsx    # briefs list
+            ├── BriefPage.tsx   # /brief/:id
             └── NotFoundPage.tsx
 ```
 

@@ -5,6 +5,7 @@ import Container from '@mui/material/Container'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { NavLink, Outlet } from 'react-router'
+import BackendStatusButton from './BackendStatusButton'
 import ColorModeToggle from './ColorModeToggle'
 
 const navButtonSx = {
@@ -27,6 +28,7 @@ function Layout() {
               </Button>
             </Box>
             <ColorModeToggle />
+            <BackendStatusButton />
           </Toolbar>
         </Container>
       </AppBar>
