@@ -13,7 +13,7 @@ import {
   updateBrief,
   type BriefPatch,
   type IncomingFile,
-} from '../store.js'
+} from '../store/index.js'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.docx', '.txt'])

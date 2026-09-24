@@ -1,0 +1,50 @@
+---
+description: Keep functions simple and files narrowly scoped
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Small functions, narrow files
+
+Prefer many small units over a few large ones. Extract as soon as a function or file has more than one reason to change. Do not grow an existing file or function unless the change still fits its single job.
+
+## Functions
+
+- One job per function. If you need "and" to describe it, split it.
+- Keep a function body around 25 lines. Extract a named helper instead of adding another branch or nested block.
+- Prefer early returns over nested `if`/`else`. Do not nest more than two levels.
+- Do not add a boolean flag that changes a function's behavior; write two functions instead.
+- Inline only when the extracted name would add no meaning.
+
+```ts
+// Bad: nested control flow, mixed jobs
+async function saveBrief(req: Request, res: Response) {
+  if (req.body && req.body.title) {
+    if (req.file) {
+      const brief = await createBrief(req.body, req.file)
+      await startAnalysis(brief.id)
+      res.status(201).json(brief)
+    }
+  }
+}
+
+// Good: validate, persist, and respond as separate steps
+async function saveBrief(req: Request, res: Response) {
+  const title = textField(req.body, 'title')
+  if (!title || !req.file) {
+    res.status(400).json({ error: 'Title and file are required' })
+    return
+  }
+  const brief = await createBrief({ title }, incomingFile(req.file))
+  await queueAnalysis(brief.id)
+  res.status(201).json(brief)
+}
+```
+
+## Files
+
+- One concern per file: a route module, a store, a component, or a parser — not two of those.
+- Keep files near 200 lines. Split by concern rather than appending more helpers to a growing file.
+- Colocate only private helpers that serve that file's job. Shared types and utilities belong in their own modules.
+- Backend: HTTP stays in `routes/`, persistence in `store`, analysis in `analysis/`.
+- Frontend: one default-exported component per file; extract subviews and hooks instead of growing the page.

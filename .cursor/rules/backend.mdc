@@ -18,6 +18,7 @@ import { router } from './routes/users'
 import { router } from './routes/users.js'
 ```
 
+- Schema changes go in numbered SQL files under `backend/migrations/`. Do not add `CREATE TABLE` strings in TypeScript. `initStore` applies pending migrations on startup.
 - Read configuration from `process.env` with a default (e.g. `Number(process.env.PORT ?? 3001)`), never hardcoded values. Document new variables in the README's Configuration table.
 - Respond with JSON (`res.json(...)`) and set an appropriate status code for errors (e.g. `res.status(404).json({ error: 'Not found' })`).
 - Type request bodies and params with Express generics (`Request<Params, ResBody, ReqBody>`) instead of `any`.

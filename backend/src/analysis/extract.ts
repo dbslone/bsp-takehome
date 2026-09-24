@@ -1,6 +1,6 @@
 import path from 'node:path'
 import mammoth from 'mammoth'
-import type { BriefUpload } from '../store.js'
+import type { BriefUpload } from '../store/index.js'
 import type { ContentPart, Plugin } from './openrouter.js'
 
 export type FileContent = {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import cors from 'cors'
 import { briefsRouter } from './routes/briefs.js'
-import { initStore, pingStore } from './store.js'
+import { initStore, pingStore } from './store/index.js'
 
 const app = express()
 const port = Number(process.env.PORT ?? 3001)

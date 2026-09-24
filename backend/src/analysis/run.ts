@@ -6,7 +6,7 @@ import {
   getBrief,
   getBriefFile,
   type Analysis,
-} from '../store.js'
+} from '../store/index.js'
 import { fileContent, type FileContent } from './extract.js'
 import { callOpenRouter, OpenRouterError, type Completion, type Message } from './openrouter.js'
 import { BriefAnalysis, briefAnalysisJsonSchema } from './schema.js'

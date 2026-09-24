@@ -15,6 +15,7 @@ COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/backend/dist backend/dist
+COPY --from=build /app/backend/migrations backend/migrations
 COPY --from=build /app/frontend/dist frontend/dist
 EXPOSE 3001
 CMD ["npm", "start"]
