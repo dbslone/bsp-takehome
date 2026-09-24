@@ -1,6 +1,6 @@
 # BSP Takehome
 
-A full-stack TypeScript app:
+A full-stack TypeScript app. The running app is at [https://bsp-takehome.onrender.com/](https://bsp-takehome.onrender.com/).
 
 - **backend/** - Node.js + Express API
 - **frontend/** - React app built with Vite
@@ -131,6 +131,8 @@ npm run lint -w frontend
 If you change the backend port, update the proxy target in `frontend/vite.config.ts` as well.
 
 ## Deployment
+
+The deployed app is [https://bsp-takehome.onrender.com/](https://bsp-takehome.onrender.com/) (Render).
 
 One Node process serves the API and the built frontend. The Dockerfile builds both workspaces and starts the backend with `npm start`. Railway, Render, and Fly.io can build that image directly. Create a Postgres database on the host and set `DATABASE_URL`. For hosted databases that require TLS, include `sslmode=require` in the URL or set `DATABASE_SSL=true`. Point the platform health check at `GET /api/health`.
 
