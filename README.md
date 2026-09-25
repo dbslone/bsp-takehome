@@ -174,7 +174,7 @@ One Node process serves the API and, when `frontend/dist` exists, the built UI. 
 
 ### How a brief moves through the app
 
-1. **Submit.** The add-brief dialog posts multipart form data to `POST /api/briefs`. Title, description, content type, target audience, and notes may be blank. A PDF, DOCX, or plain text file is required, at most 10 MB.
+1. **Submit.** The add-brief dialog posts multipart form data to `POST /api/briefs`. Title is required. A PDF, DOCX, or plain text file is optional and at most 10 MB. With a file, the other fields may be blank. Without a file, description, content type, and target audience are required. Notes stay optional.
 2. **Store.** The route checks the file bytes and the text lengths, then inserts a row in `briefs`. The file is stored on that row (`file_bytes`), not in object storage.
 3. **Analyze.** Saving the brief queues an analysis and returns immediately (`201` on create, `200` on update). The model call continues after the response. `SYSTEM_PROMPT` in [`backend/src/analysis/run.ts`](backend/src/analysis/run.ts) is the prompt. The request asks OpenRouter for JSON matching the schema from [`backend/src/analysis/schema.ts`](backend/src/analysis/schema.ts). PDFs are sent to OpenRouter's file parser. DOCX is converted to text with mammoth. Plain text is sent as text.
 4. **Validate.** The response is parsed as JSON and checked with `ModelResponse.safeParse` before anything is treated as an analysis. On success, blank brief fields are filled from the model's `extracted` object and the rest is stored as `result`. On timeout, malformed JSON, or a schema mismatch, the analysis row is saved as `error` with a short message. The UI never receives an unvalidated result.
@@ -296,6 +296,7 @@ What was checked by hand, in tests, or in CI rather than taken from generated co
 
 ## Docs
 
+- [Brief flow](docs/brief-flow.md). How a brief moves from the add dialog through storage, analysis, and the brief page.
 - [Edge cases](docs/edge-cases.md). Uploads, HTTP errors, analysis failures, and what each screen shows when something goes wrong.
 - [LLM provider comparison](docs/llm-provider-comparison.md). Why the demo uses OpenRouter free models instead of Anthropic or OpenAI.
 - [Choosing a model](docs/model-selection.md). Process for how the model was chosen
