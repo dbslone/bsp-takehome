@@ -60,19 +60,19 @@ Two app processes can start at once. Migrations take a Postgres advisory lock, a
 
 `POST /api/briefs/:id/analysis` starts a run and returns `202` with the pending row. The model call continues after the response.
 
-| Case                                                   | What the user sees                                                                         |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Another analysis is already pending                    | `409` `An analysis is already in progress`. The panel reloads instead of showing an error. |
-| Brief deleted between the check and the insert         | `404` `Not found`                                                                          |
-| `OPENROUTER_API_KEY` is unset                          | Analysis `error`: `OPENROUTER_API_KEY is not set on the server`                            |
-| OpenRouter does not respond within 90 seconds          | Analysis `error` naming the timeout                                                        |
-| OpenRouter cannot be reached, or returns an HTTP error | Analysis `error` with the status or `Could not reach OpenRouter`                           |
-| Empty model content                                    | Analysis `error`: `The model returned an empty response`, or the upstream message          |
-| Model text is not JSON                                 | Analysis `error`: `The model did not return valid JSON`. Fenced JSON is unwrapped first.   |
-| JSON does not match the schema                         | Analysis `error` listing up to three field problems                                        |
-| Brief disappears mid-run                               | Analysis `error`: `The brief or its file no longer exists`                                 |
-| Brief has no file                                      | Analysis reviews the form text and leaves extracted fields empty                           |
-| Any other throw                                        | Analysis `error`: `Unexpected error while analyzing the brief`                             |
+| Case                                                   | What the user sees                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Another analysis is already pending                    | `409` `An analysis is already in progress`. The panel reloads instead of showing an error.                                                                                                                                |
+| Brief deleted between the check and the insert         | `404` `Not found`                                                                                                                                                                                                         |
+| `OPENROUTER_API_KEY` is unset                          | Analysis `error`: `OPENROUTER_API_KEY is not set on the server`                                                                                                                                                           |
+| OpenRouter does not respond within 90 seconds          | Analysis `error` naming the timeout                                                                                                                                                                                       |
+| OpenRouter cannot be reached, or returns an HTTP error | Analysis `error` with the status or `Could not reach OpenRouter`                                                                                                                                                          |
+| Empty model content                                    | Analysis `error`: `The model returned an empty response`, or the upstream message. Text in the reasoning field is used when content is empty, and the next model is tried when a model returns nothing.                   |
+| Model text is not JSON                                 | Analysis `error`: `The model did not return valid JSON`. Fenced JSON is unwrapped first. A response with no closing brace gets one appended. If `extracted` is missing, those fields are empty and the analysis is saved. |
+| JSON does not match the schema                         | Analysis `error` listing up to three field problems                                                                                                                                                                       |
+| Brief disappears mid-run                               | Analysis `error`: `The brief or its file no longer exists`                                                                                                                                                                |
+| Brief has no file                                      | Analysis reviews the form text and leaves extracted fields empty                                                                                                                                                          |
+| Any other throw                                        | Analysis `error`: `Unexpected error while analyzing the brief`                                                                                                                                                            |
 
 Completion and failure updates only apply while the row is still `pending`. A superseded or deleted run cannot overwrite a newer result. If saving the failure itself fails, the server logs it and leaves the row pending until the next restart.
 

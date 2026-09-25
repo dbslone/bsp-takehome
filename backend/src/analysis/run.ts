@@ -22,7 +22,12 @@ import {
   type ContentPart,
   type Plugin,
 } from './openrouter.js'
-import { ModelResponse, modelResponseJsonSchema, type BriefAnalysis } from './schema.js'
+import {
+  BriefAnalysis,
+  ModelResponse,
+  modelResponseJsonSchema,
+  type BriefAnalysis as AnalysisResult,
+} from './schema.js'
 
 const SYSTEM_PROMPT = `You are a senior creative strategist reviewing a creative brief for a production team.
 Read the brief form fields and any attached file, then respond with a single JSON object that matches the provided schema exactly. Do not include any text outside the JSON.
@@ -80,7 +85,7 @@ async function settle(analysisId: string, briefId: string, outcome: Outcome): Pr
 }
 
 type Outcome =
-  | { ok: true; model: string; result: BriefAnalysis; extracted: BriefText }
+  | { ok: true; model: string; result: AnalysisResult; extracted: BriefText }
   | { ok: false; error: string; model?: string; rawResponse?: string }
 
 async function analyze(briefId: string, signal: AbortSignal): Promise<Outcome> {
@@ -146,41 +151,68 @@ async function requestModel(
 
 function readModelResponse(completion: Completion): Outcome {
   const { model, content: raw } = completion
-  const json = parseJson(raw)
-  if (!json.ok) {
-    return { ok: false, error: 'The model did not return valid JSON', model, rawResponse: raw }
-  }
+  const parsed = parseModelResponse(raw)
+  if (!parsed.ok) return { ...parsed, model, rawResponse: raw }
+  return { ok: true, model, result: parsed.result, extracted: parsed.extracted }
+}
 
-  const parsed = ModelResponse.safeParse(json.value)
+export function parseModelResponse(raw: string): ModelParse {
+  const json = parseJson(raw)
+  if (!json.ok) return { ok: false, error: 'The model did not return valid JSON' }
+
+  const parsed = ModelResponse.safeParse(supplyExtracted(json.value))
   if (!parsed.success) {
     return {
       ok: false,
       error: `Response did not match the expected format: ${describeIssues(parsed.error)}`,
-      model,
-      rawResponse: raw,
     }
   }
 
   const { extracted, ...result } = parsed.data
-  return { ok: true, model, result, extracted }
+  return { ok: true, result, extracted }
 }
+
+type ModelParse =
+  { ok: true; result: AnalysisResult; extracted: BriefText } | { ok: false; error: string }
 
 function parseJson(raw: string): { ok: true; value: unknown } | { ok: false } {
   try {
-    return { ok: true, value: JSON.parse(extractJson(raw)) }
+    return { ok: true, value: JSON.parse(modelJson(raw)) }
   } catch {
     return { ok: false }
   }
 }
 
-function extractJson(raw: string): string {
-  const text = raw
+function modelJson(raw: string): string {
+  const text = unwrapJson(raw)
+  const start = text.indexOf('{')
+  if (start === -1) return text
+  const body = text.slice(start)
+  const end = body.lastIndexOf('}')
+  if (end === -1) return `${body.trimEnd()}}`
+  const after = body.slice(end + 1).trim()
+  if (after.includes(']')) return `${body.trimEnd()}}`
+  return body.slice(0, end + 1)
+}
+
+function unwrapJson(raw: string): string {
+  return raw
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '')
-  const start = text.indexOf('{')
-  const end = text.lastIndexOf('}')
-  return start !== -1 && end > start ? text.slice(start, end + 1) : text
+}
+
+function supplyExtracted(value: unknown): unknown {
+  if (!isRecord(value) || 'extracted' in value) return value
+  if (!BriefAnalysis.safeParse(value).success) return value
+  return {
+    ...value,
+    extracted: { title: '', description: '', contentType: '', targetAudience: '', notes: '' },
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function describeIssues(error: z.ZodError): string {
